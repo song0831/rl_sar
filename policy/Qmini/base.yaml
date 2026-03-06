@@ -1,0 +1,21 @@
+# Copyright (c) 2024-2025 Ziqi Fan
+# SPDX-License-Identifier: Apache-2.0
+
+Qmini:
+  dt: 0.005
+  decimation: 4
+  fixed_kp: [55.0, 105.0, 75.0, 45.0, 30.0,
+             55.0, 105.0, 75.0, 45.0, 30.0]
+  fixed_kd: [0.3, 2.5, 0.3, 0.5, 0.25,
+             0.3, 2.5, 0.3, 0.5, 0.25]
+  num_of_dofs: 10
+  wheel_indices: []
+  torque_limits: [60.0, 60.0, 60.0, 60.0, 20.0,
+                  60.0, 60.0, 60.0, 60.0, 20.0]
+  default_dof_pos: [0.0, 0.0, 0.0, 0.0, 0.0,
+                    0.0, 0.0, 0.0, 0.0, 0.0]
+  joint_names: [LL-joint1, LL-joint2, LL-joint3, LL-joint4, LL-joint5,
+                RL-joint1, RL-joint2, RL-joint3, RL-joint4, RL-joint5]
+  joint_controller_names: [LL_joint1_controller, LL_joint2_controller, LL_joint3_controller, LL_joint4_controller, LL_joint5_controller,
+                           RL_joint1_controller, RL_joint2_controller, RL_joint3_controller, RL_joint4_controller, RL_joint5_controller]
+  joint_mapping: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]

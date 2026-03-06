@@ -1,0 +1,38 @@
+# nio_lab locomotion policy for Qmini
+# Trained with IsaacLab, exported as ONNX
+# Source: nio_lab/logs/rsl_rl/Qmini/2026-02-12_12-53-50
+
+Qmini/nio_lab/locomotion:
+  model_name: "policy.onnx"
+  num_observations: 195
+  observations: ["ang_vel", "gravity_vec", "commands", "dof_pos", "dof_vel", "actions"]
+  observations_history: [4, 3, 2, 1, 0]
+  observations_history_priority: "term"
+  clip_obs: 100.0
+  clip_actions_lower: [-100.0, -100.0, -100.0, -100.0, -100.0, -100.0, -100.0, -100.0, -100.0, -100.0]
+  clip_actions_upper: [100.0, 100.0, 100.0, 100.0, 100.0, 100.0, 100.0, 100.0, 100.0, 100.0]
+  # rl_kp in policy (asset) order
+  # Asset order: LL_joint1, RL_joint1, LL_joint2, RL_joint2, LL_joint3, RL_joint3,
+  #              LL_joint4, RL_joint4, LL_joint5, RL_joint5
+  rl_kp: [55.0, 55.0, 105.0, 105.0, 75.0, 75.0, 45.0, 45.0, 30.0, 30.0]
+  # rl_kd in policy (asset) order
+  rl_kd: [0.3, 0.3, 2.5, 2.5, 0.3, 0.3, 0.5, 0.5, 0.25, 0.25]
+  # fixed_kp/kd for state transitions (GetUp/GetDown), same as rl_kp/kd
+  fixed_kp: [55.0, 55.0, 105.0, 105.0, 75.0, 75.0, 45.0, 45.0, 30.0, 30.0]
+  fixed_kd: [0.3, 0.3, 2.5, 2.5, 0.3, 0.3, 0.5, 0.5, 0.25, 0.25]
+  num_of_dofs: 10
+  # action_scale in policy (asset) order
+  action_scale: [0.35, 0.35, 0.35, 0.35, 0.35, 0.35, 0.35, 0.35, 0.35, 0.35]
+  wheel_indices: []
+  lin_vel_scale: 1.0
+  ang_vel_scale: 0.2
+  dof_pos_scale: 1.0
+  dof_vel_scale: 0.05
+  commands_scale: [1.0, 1.0, 1.0]
+  # torque_limits in policy (asset) order
+  torque_limits: [60.0, 60.0, 60.0, 60.0, 60.0, 60.0, 60.0, 60.0, 20.0, 20.0]
+  # default_dof_pos in policy (asset) order
+  default_dof_pos: [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+  # joint_mapping[policy_idx] = sdk_idx
+  # Maps from IsaacLab asset order to SDK/hardware order
+  joint_mapping: [0, 5, 1, 6, 2, 7, 3, 8, 4, 9]

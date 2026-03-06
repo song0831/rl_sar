@@ -1,0 +1,377 @@
+<?xml version="1.0" ?>
+<sdf version="1.5">
+    <world name="default">
+
+        <physics type="ode">
+            <max_step_size>0.0005</max_step_size>
+            <real_time_factor>1</real_time_factor>
+            <real_time_update_rate>2000</real_time_update_rate>
+            <gravity>0 0 -9.81</gravity>
+            <ode>
+                <solver>
+                    <type>quick</type>
+                    <iters>50</iters>
+                    <sor>1.3</sor>
+                </solver>
+                <constraints>
+                    <cfm>0.0</cfm>
+                    <erp>0.2</erp>
+                    <contact_max_correcting_vel>10.0</contact_max_correcting_vel>
+                    <contact_surface_layer>0.001</contact_surface_layer>
+                </constraints>
+            </ode>
+        </physics>
+
+        <!-- Scene: warm afternoon sky -->
+        <scene>
+            <ambient>0.6 0.6 0.6 1.0</ambient>
+            <background>0.53 0.81 0.92 1.0</background>
+            <shadows>true</shadows>
+            <sky>
+                <time>14</time>
+                <sunrise>6</sunrise>
+                <sunset>18</sunset>
+                <clouds>
+                    <speed>8</speed>
+                    <humidity>0.4</humidity>
+                    <mean_size>0.6</mean_size>
+                </clouds>
+            </sky>
+        </scene>
+
+        <!-- Sun light -->
+        <include>
+            <uri>model://sun</uri>
+        </include>
+
+        <!-- Soft fill light to reduce harsh shadows -->
+        <light name="fill_light" type="directional">
+            <pose>-5 5 10 0 0 0</pose>
+            <diffuse>0.3 0.3 0.35 1</diffuse>
+            <specular>0.05 0.05 0.05 1</specular>
+            <direction>0.3 -0.3 -0.6</direction>
+            <cast_shadows>false</cast_shadows>
+        </light>
+
+        <!-- Ground: large textured plane -->
+        <model name="ground">
+            <static>true</static>
+            <link name="ground_link">
+                <collision name="ground_collision">
+                    <geometry>
+                        <plane>
+                            <normal>0 0 1</normal>
+                            <size>100 100</size>
+                        </plane>
+                    </geometry>
+                    <surface>
+                        <friction>
+                            <ode>
+                                <mu>1.0</mu>
+                                <mu2>1.0</mu2>
+                            </ode>
+                        </friction>
+                    </surface>
+                </collision>
+                <visual name="ground_visual">
+                    <geometry>
+                        <plane>
+                            <normal>0 0 1</normal>
+                            <size>100 100</size>
+                        </plane>
+                    </geometry>
+                    <material>
+                        <script>
+                            <uri>file://media/materials/scripts/gazebo.material</uri>
+                            <name>Gazebo/Grey</name>
+                        </script>
+                        <ambient>0.72 0.85 0.95 1</ambient>
+                        <diffuse>0.72 0.85 0.95 1</diffuse>
+                    </material>
+                </visual>
+            </link>
+        </model>
+
+        <!-- Pillar A: slim decorative column -->
+        <model name="pillar_a">
+            <static>true</static>
+            <link name="pillar_a_link">
+                <pose>6 4 0.6 0 0 0</pose>
+                <collision name="pillar_a_col">
+                    <geometry>
+                        <cylinder>
+                            <radius>0.15</radius>
+                            <length>1.2</length>
+                        </cylinder>
+                    </geometry>
+                </collision>
+                <visual name="pillar_a_vis">
+                    <geometry>
+                        <cylinder>
+                            <radius>0.15</radius>
+                            <length>1.2</length>
+                        </cylinder>
+                    </geometry>
+                    <material>
+                        <ambient>0.6 0.6 0.58 1</ambient>
+                        <diffuse>0.7 0.7 0.68 1</diffuse>
+                        <specular>0.3 0.3 0.3 1</specular>
+                    </material>
+                </visual>
+            </link>
+            <!-- Sphere cap on pillar -->
+            <link name="pillar_a_cap">
+                <pose>6 4 1.3 0 0 0</pose>
+                <visual name="cap_vis">
+                    <geometry>
+                        <sphere>
+                            <radius>0.2</radius>
+                        </sphere>
+                    </geometry>
+                    <material>
+                        <ambient>0.35 0.55 0.7 1</ambient>
+                        <diffuse>0.4 0.6 0.75 1</diffuse>
+                        <specular>0.4 0.4 0.4 1</specular>
+                    </material>
+                </visual>
+            </link>
+        </model>
+
+        <!-- Pillar B: symmetric counterpart -->
+        <model name="pillar_b">
+            <static>true</static>
+            <link name="pillar_b_link">
+                <pose>6 -4 0.6 0 0 0</pose>
+                <collision name="pillar_b_col">
+                    <geometry>
+                        <cylinder>
+                            <radius>0.15</radius>
+                            <length>1.2</length>
+                        </cylinder>
+                    </geometry>
+                </collision>
+                <visual name="pillar_b_vis">
+                    <geometry>
+                        <cylinder>
+                            <radius>0.15</radius>
+                            <length>1.2</length>
+                        </cylinder>
+                    </geometry>
+                    <material>
+                        <ambient>0.6 0.6 0.58 1</ambient>
+                        <diffuse>0.7 0.7 0.68 1</diffuse>
+                        <specular>0.3 0.3 0.3 1</specular>
+                    </material>
+                </visual>
+            </link>
+            <link name="pillar_b_cap">
+                <pose>6 -4 1.3 0 0 0</pose>
+                <visual name="cap_vis">
+                    <geometry>
+                        <sphere>
+                            <radius>0.2</radius>
+                        </sphere>
+                    </geometry>
+                    <material>
+                        <ambient>0.35 0.55 0.7 1</ambient>
+                        <diffuse>0.4 0.6 0.75 1</diffuse>
+                        <specular>0.4 0.4 0.4 1</specular>
+                    </material>
+                </visual>
+            </link>
+        </model>
+
+        <!-- Low bench: simple seating element -->
+        <model name="bench">
+            <static>true</static>
+            <link name="bench_seat">
+                <pose>-5 0 0.225 0 0 0</pose>
+                <collision name="bench_col">
+                    <geometry>
+                        <box>
+                            <size>0.5 2.0 0.05</size>
+                        </box>
+                    </geometry>
+                </collision>
+                <visual name="bench_vis">
+                    <geometry>
+                        <box>
+                            <size>0.5 2.0 0.05</size>
+                        </box>
+                    </geometry>
+                    <material>
+                        <ambient>0.55 0.35 0.2 1</ambient>
+                        <diffuse>0.6 0.4 0.25 1</diffuse>
+                    </material>
+                </visual>
+            </link>
+            <link name="bench_leg_l">
+                <pose>-5 -0.8 0.1 0 0 0</pose>
+                <visual name="leg_l_vis">
+                    <geometry>
+                        <box>
+                            <size>0.4 0.08 0.2</size>
+                        </box>
+                    </geometry>
+                    <material>
+                        <ambient>0.45 0.45 0.43 1</ambient>
+                        <diffuse>0.5 0.5 0.48 1</diffuse>
+                    </material>
+                </visual>
+            </link>
+            <link name="bench_leg_r">
+                <pose>-5 0.8 0.1 0 0 0</pose>
+                <visual name="leg_r_vis">
+                    <geometry>
+                        <box>
+                            <size>0.4 0.08 0.2</size>
+                        </box>
+                    </geometry>
+                    <material>
+                        <ambient>0.45 0.45 0.43 1</ambient>
+                        <diffuse>0.5 0.5 0.48 1</diffuse>
+                    </material>
+                </visual>
+            </link>
+        </model>
+
+        <!-- Tree-like element: trunk + canopy -->
+        <model name="tree_1">
+            <static>true</static>
+            <link name="trunk">
+                <pose>-7 5 0.75 0 0 0</pose>
+                <collision name="trunk_col">
+                    <geometry>
+                        <cylinder>
+                            <radius>0.12</radius>
+                            <length>1.5</length>
+                        </cylinder>
+                    </geometry>
+                </collision>
+                <visual name="trunk_vis">
+                    <geometry>
+                        <cylinder>
+                            <radius>0.12</radius>
+                            <length>1.5</length>
+                        </cylinder>
+                    </geometry>
+                    <material>
+                        <ambient>0.4 0.28 0.15 1</ambient>
+                        <diffuse>0.45 0.32 0.18 1</diffuse>
+                    </material>
+                </visual>
+            </link>
+            <link name="canopy">
+                <pose>-7 5 2.0 0 0 0</pose>
+                <visual name="canopy_vis">
+                    <geometry>
+                        <sphere>
+                            <radius>1.0</radius>
+                        </sphere>
+                    </geometry>
+                    <material>
+                        <ambient>0.2 0.5 0.2 1</ambient>
+                        <diffuse>0.25 0.55 0.25 1</diffuse>
+                    </material>
+                </visual>
+            </link>
+        </model>
+
+        <!-- Tree 2: slightly different size -->
+        <model name="tree_2">
+            <static>true</static>
+            <link name="trunk">
+                <pose>-8 -4 0.6 0 0 0</pose>
+                <collision name="trunk_col">
+                    <geometry>
+                        <cylinder>
+                            <radius>0.1</radius>
+                            <length>1.2</length>
+                        </cylinder>
+                    </geometry>
+                </collision>
+                <visual name="trunk_vis">
+                    <geometry>
+                        <cylinder>
+                            <radius>0.1</radius>
+                            <length>1.2</length>
+                        </cylinder>
+                    </geometry>
+                    <material>
+                        <ambient>0.38 0.26 0.13 1</ambient>
+                        <diffuse>0.42 0.3 0.16 1</diffuse>
+                    </material>
+                </visual>
+            </link>
+            <link name="canopy">
+                <pose>-8 -4 1.6 0 0 0</pose>
+                <visual name="canopy_vis">
+                    <geometry>
+                        <sphere>
+                            <radius>0.8</radius>
+                        </sphere>
+                    </geometry>
+                    <material>
+                        <ambient>0.18 0.45 0.18 1</ambient>
+                        <diffuse>0.22 0.5 0.22 1</diffuse>
+                    </material>
+                </visual>
+            </link>
+        </model>
+
+        <!-- Small rock cluster for natural feel -->
+        <model name="rock_cluster">
+            <static>true</static>
+            <link name="rock_1">
+                <pose>4 -6 0.15 0.1 0.2 0.5</pose>
+                <visual name="rock_1_vis">
+                    <geometry>
+                        <sphere>
+                            <radius>0.3</radius>
+                        </sphere>
+                    </geometry>
+                    <material>
+                        <ambient>0.5 0.48 0.45 1</ambient>
+                        <diffuse>0.55 0.53 0.5 1</diffuse>
+                    </material>
+                </visual>
+                <collision name="rock_1_col">
+                    <geometry>
+                        <sphere>
+                            <radius>0.3</radius>
+                        </sphere>
+                    </geometry>
+                </collision>
+            </link>
+            <link name="rock_2">
+                <pose>4.5 -5.7 0.1 0.3 0.1 1.2</pose>
+                <visual name="rock_2_vis">
+                    <geometry>
+                        <sphere>
+                            <radius>0.2</radius>
+                        </sphere>
+                    </geometry>
+                    <material>
+                        <ambient>0.48 0.46 0.42 1</ambient>
+                        <diffuse>0.52 0.5 0.47 1</diffuse>
+                    </material>
+                </visual>
+            </link>
+            <link name="rock_3">
+                <pose>3.7 -5.5 0.08 0.4 0 0.8</pose>
+                <visual name="rock_3_vis">
+                    <geometry>
+                        <sphere>
+                            <radius>0.15</radius>
+                        </sphere>
+                    </geometry>
+                    <material>
+                        <ambient>0.52 0.5 0.47 1</ambient>
+                        <diffuse>0.56 0.54 0.5 1</diffuse>
+                    </material>
+                </visual>
+            </link>
+        </model>
+
+    </world>
+</sdf>

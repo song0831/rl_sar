@@ -1,0 +1,145 @@
+# nio_lab locomotion policy for G1-29dof
+# Trained with IsaacLab, exported as ONNX
+# Source: nio_lab/logs/rsl_rl/G1/2026-02-11_13-16-48
+
+g1/nio_lab/locomotion:
+  model_name: "policy.onnx"
+  num_observations: 480
+  observations: ["ang_vel", "gravity_vec", "commands", "dof_pos", "dof_vel", "actions"]
+  observations_history: [4, 3, 2, 1, 0]
+  observations_history_priority: "term"
+  clip_obs: 100.0
+  clip_actions_lower: [-100.0, -100.0, -100.0, -100.0, -100.0, -100.0, -100.0, -100.0, -100.0, -100.0, -100.0, -100.0, -100.0, -100.0, -100.0, -100.0, -100.0, -100.0, -100.0, -100.0, -100.0, -100.0, -100.0, -100.0, -100.0, -100.0, -100.0, -100.0, -100.0]
+  clip_actions_upper: [100.0, 100.0, 100.0, 100.0, 100.0, 100.0, 100.0, 100.0, 100.0, 100.0, 100.0, 100.0, 100.0, 100.0, 100.0, 100.0, 100.0, 100.0, 100.0, 100.0, 100.0, 100.0, 100.0, 100.0, 100.0, 100.0, 100.0, 100.0, 100.0]
+  # rl_kp in policy (asset) order
+  rl_kp: [100.0, 100.0, 200.0,
+          100.0, 100.0, 40.0,
+          100.0, 100.0, 40.0,
+          150.0, 150.0,
+          40.0, 40.0,
+          40.0, 40.0,
+          40.0, 40.0,
+          40.0, 40.0,
+          40.0, 40.0,
+          40.0, 40.0,
+          40.0, 40.0,
+          40.0, 40.0,
+          40.0, 40.0]
+  # rl_kd in policy (asset) order
+  rl_kd: [2.0, 2.0, 5.0,
+          2.0, 2.0, 5.0,
+          2.0, 2.0, 5.0,
+          4.0, 4.0,
+          1.0, 1.0,
+          2.0, 2.0,
+          1.0, 1.0,
+          2.0, 2.0,
+          1.0, 1.0,
+          1.0, 1.0,
+          1.0, 1.0,
+          1.0, 1.0,
+          1.0, 1.0]
+  # fixed_kp/kd for state transitions (GetUp/GetDown), same as rl_kp/kd
+  fixed_kp: [100.0, 100.0, 200.0,
+             100.0, 100.0, 40.0,
+             100.0, 100.0, 40.0,
+             150.0, 150.0,
+             40.0, 40.0,
+             40.0, 40.0,
+             40.0, 40.0,
+             40.0, 40.0,
+             40.0, 40.0,
+             40.0, 40.0,
+             40.0, 40.0,
+             40.0, 40.0,
+             40.0, 40.0]
+  fixed_kd: [2.0, 2.0, 5.0,
+             2.0, 2.0, 5.0,
+             2.0, 2.0, 5.0,
+             4.0, 4.0,
+             1.0, 1.0,
+             2.0, 2.0,
+             1.0, 1.0,
+             2.0, 2.0,
+             1.0, 1.0,
+             1.0, 1.0,
+             1.0, 1.0,
+             1.0, 1.0,
+             1.0, 1.0]
+  num_of_dofs: 29
+  # action_scale in policy (asset) order
+  action_scale: [0.25, 0.25, 0.25,
+                 0.25, 0.25, 0.25,
+                 0.25, 0.25, 0.25,
+                 0.25, 0.25,
+                 0.25, 0.25,
+                 0.25, 0.25,
+                 0.25, 0.25,
+                 0.25, 0.25,
+                 0.25, 0.25,
+                 0.25, 0.25,
+                 0.25, 0.25,
+                 0.25, 0.25,
+                 0.25, 0.25]
+  wheel_indices: []
+  lin_vel_scale: 1.0
+  ang_vel_scale: 0.2
+  dof_pos_scale: 1.0
+  dof_vel_scale: 0.05
+  commands_scale: [1.0, 1.0, 1.0]
+  # torque_limits in policy (asset) order
+  torque_limits: [88.0, 88.0, 88.0,
+                  139.0, 139.0, 25.0,
+                  88.0, 88.0, 25.0,
+                  139.0, 139.0,
+                  25.0, 25.0,
+                  25.0, 25.0,
+                  25.0, 25.0,
+                  25.0, 25.0,
+                  25.0, 25.0,
+                  25.0, 25.0,
+                  25.0, 25.0,
+                  5.0, 5.0,
+                  5.0, 5.0]
+  # default_dof_pos in policy (asset) order
+  # Asset order: left_hip_pitch, right_hip_pitch, waist_yaw,
+  #              left_hip_roll, right_hip_roll, waist_roll,
+  #              left_hip_yaw, right_hip_yaw, waist_pitch,
+  #              left_knee, right_knee,
+  #              left_shoulder_pitch, right_shoulder_pitch,
+  #              left_ankle_pitch, right_ankle_pitch,
+  #              left_shoulder_roll, right_shoulder_roll,
+  #              left_ankle_roll, right_ankle_roll,
+  #              left_shoulder_yaw, right_shoulder_yaw,
+  #              left_elbow, right_elbow,
+  #              left_wrist_roll, right_wrist_roll,
+  #              left_wrist_pitch, right_wrist_pitch,
+  #              left_wrist_yaw, right_wrist_yaw
+  default_dof_pos: [-0.1, -0.1, 0.0,
+                     0.0, 0.0, 0.0,
+                     0.0, 0.0, 0.0,
+                     0.3, 0.3,
+                     0.3, 0.3,
+                    -0.2, -0.2,
+                     0.25, -0.25,
+                     0.0, 0.0,
+                     0.0, 0.0,
+                     0.97, 0.97,
+                     0.15, -0.15,
+                     0.0, 0.0,
+                     0.0, 0.0]
+  # joint_mapping[policy_idx] = sdk_idx
+  # Maps from IsaacLab asset order to SDK/hardware order
+  joint_mapping: [0, 6, 12,
+                  1, 7, 13,
+                  2, 8, 14,
+                  3, 9,
+                  15, 22,
+                  4, 10,
+                  16, 23,
+                  5, 11,
+                  17, 24,
+                  18, 25,
+                  19, 26,
+                  20, 27,
+                  21, 28]
