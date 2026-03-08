@@ -32,7 +32,14 @@ Qmini/nio_lab/locomotion:
   # torque_limits in policy (asset) order
   torque_limits: [60.0, 60.0, 60.0, 60.0, 60.0, 60.0, 60.0, 60.0, 20.0, 20.0]
   # default_dof_pos in policy (asset) order
-  default_dof_pos: [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+  # Asset order: LL_joint1, RL_joint1, LL_joint2, RL_joint2, LL_joint3, RL_joint3,
+  #              LL_joint4, RL_joint4, LL_joint5, RL_joint5
+  # The URDF has been modified so that URDF q=0 == SDK q=0 (flat/folded pose).
+  # The standing pose in both URDF and SDK coordinate is:
+  #   [LL_j1, RL_j1, LL_j2, RL_j2, LL_j3, RL_j3, LL_j4, RL_j4, LL_j5, RL_j5]
+  # = [0.55, -0.55, 0.25, -0.22, -1.35, 1.35, 1.2, -1.24, -1.02, 1.02]
+  # (reordered from SDK order to policy asset order via joint_mapping [0,5,1,6,2,7,3,8,4,9])
+  default_dof_pos: [0.55, -0.55, 0.25, -0.22, -1.35, 1.35, 1.2, -1.24, -1.02, 1.02]
   # joint_mapping[policy_idx] = sdk_idx
   # Maps from IsaacLab asset order to SDK/hardware order
   joint_mapping: [0, 5, 1, 6, 2, 7, 3, 8, 4, 9]

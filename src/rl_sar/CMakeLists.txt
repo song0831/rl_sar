@@ -74,10 +74,10 @@ set(ONNX_RUNTIME_DIR "${INFERENCE_RUNTIME_DIR}/onnxruntime")
 set(IS_JETSON FALSE)
 if(EXISTS "/etc/nv_tegra_release")
     set(IS_JETSON TRUE)
-    message(STATUS "Jetson platform detected - ONNX Runtime will be disabled")
+    message(STATUS "Jetson platform detected")
 endif()
 
-if(EXISTS "${ONNX_RUNTIME_DIR}/include" AND EXISTS "${ONNX_RUNTIME_DIR}/lib" AND NOT IS_JETSON)
+if(EXISTS "${ONNX_RUNTIME_DIR}/include" AND EXISTS "${ONNX_RUNTIME_DIR}/lib")
     set(USE_ONNX "ON")
     add_compile_definitions(USE_ONNX)
 
@@ -158,6 +158,36 @@ if(EXISTS "${LIBTORCH_DIR}/include" AND EXISTS "${LIBTORCH_DIR}/lib")
 
     if(Torch_FOUND)
         message(STATUS "LibTorch version: ${Torch_VERSION}")
+
+        # Filter out any NOTFOUND entries from TORCH_LIBRARIES (e.g. CUDA_nvrtc_LIBRARY
+        # is absent on Jetson since only runtime libs are installed, not the full toolkit stub)
+        set(_torch_libs_filtered "")
+        foreach(_lib ${TORCH_LIBRARIES})
+            if(NOT "${_lib}" MATCHES "NOTFOUND")
+                list(APPEND _torch_libs_filtered "${_lib}")
+            else()
+                message(STATUS "Skipping missing optional Torch library: ${_lib}")
+            endif()
+        endforeach()
+        set(TORCH_LIBRARIES ${_torch_libs_filtered})
+
+        # CUDA::nvrtc may not resolve on Jetson (runtime-only install without dev stubs).
+        # Create an INTERFACE stub so link steps that reference it don't fail.
+        if(NOT TARGET CUDA::nvrtc)
+            add_library(CUDA::nvrtc INTERFACE IMPORTED)
+            find_library(_nvrtc_lib nvrtc
+                HINTS /usr/local/cuda/targets/aarch64-linux/lib
+                      /usr/local/cuda-12.6/targets/aarch64-linux/lib
+                      /usr/local/cuda/lib64)
+            if(_nvrtc_lib)
+                set_target_properties(CUDA::nvrtc PROPERTIES
+                    INTERFACE_LINK_LIBRARIES "${_nvrtc_lib}")
+                message(STATUS "Found libnvrtc: ${_nvrtc_lib}")
+            else()
+                message(STATUS "libnvrtc not found - CUDA::nvrtc stub created (optional)")
+            endif()
+        endif()
+
         message(STATUS "Torch libraries: ${TORCH_LIBRARIES}")
     else()
         set(USE_TORCH "OFF")
@@ -257,6 +287,12 @@ include_directories(
     library/core/inference_runtime
     library/core/logger
     fsm_robot
+    # Qmini serial-port motor SDK
+    # SerialPort.h lives here; errorClass.h is at serialPort/include/errorClass.h
+    library/thirdparty/robot_sdk/qmini/include/serialPort
+    # SerialPort.h uses #include "serialPort/include/errorClass.h", so parent needed too
+    library/thirdparty/robot_sdk/qmini/include
+    library/thirdparty/robot_sdk/qmini/include/unitreeMotor
 )
 
 # library for inference runtime
@@ -387,16 +423,37 @@ endif()
 
 # executable for rl real qmini
 if(SYSTEM_TYPE STREQUAL "Linux")
+    # Qmini serial-port motor SDK (aarch64 only)
+    set(QMINI_SDK_LIB_DIR ${CMAKE_CURRENT_SOURCE_DIR}/library/thirdparty/robot_sdk/qmini/lib/${ARCH_DIR})
+    find_library(UNITREE_MOTOR_SDK UnitreeMotorSDK_Arm64
+        HINTS ${QMINI_SDK_LIB_DIR}
+        NO_DEFAULT_PATH
+    )
+    if(NOT UNITREE_MOTOR_SDK)
+        # fallback: try without suffix
+        find_library(UNITREE_MOTOR_SDK UnitreeMotorSDK
+            HINTS ${QMINI_SDK_LIB_DIR}
+            NO_DEFAULT_PATH
+        )
+    endif()
+    if(UNITREE_MOTOR_SDK)
+        message(STATUS "Found Qmini UnitreeMotorSDK: ${UNITREE_MOTOR_SDK}")
+    else()
+        message(WARNING "Qmini UnitreeMotorSDK not found in ${QMINI_SDK_LIB_DIR} (expected aarch64 target), skipping rl_real_qmini")
+    endif()
+
+    if(NOT UNITREE_MOTOR_SDK)
+        # Skip rl_real_qmini — SDK library is only available for aarch64 (Jetson/ARM target)
+    else()
     add_executable(rl_real_qmini src/rl_real_qmini.cpp)
     target_link_libraries(rl_real_qmini
-        unitree_sdk2
         rl_sdk
         observation_buffer
         ${YAML_CPP_LIBRARIES}
+        ${UNITREE_MOTOR_SDK}
     )
-    # Add unitree_sdk2 library path to RPATH
     set_target_properties(rl_real_qmini PROPERTIES
-        INSTALL_RPATH "${CMAKE_INSTALL_RPATH};${CMAKE_CURRENT_SOURCE_DIR}/library/thirdparty/robot_sdk/unitree/unitree_sdk2/thirdparty/lib/${ARCH_DIR}"
+        INSTALL_RPATH "${CMAKE_INSTALL_RPATH};${QMINI_SDK_LIB_DIR}"
     )
     if(NOT USE_CMAKE)
         if($ENV{ROS_DISTRO} MATCHES "foxy|humble")
@@ -407,7 +464,8 @@ if(SYSTEM_TYPE STREQUAL "Linux")
             install(TARGETS rl_real_qmini DESTINATION lib/${PROJECT_NAME})
         endif()
     endif()
-endif()
+    endif() # UNITREE_MOTOR_SDK found
+endif() # SYSTEM_TYPE Linux
 
 # executable for actuator net
 if(NOT USE_CMAKE)

@@ -15,16 +15,15 @@
 #include "inference_runtime.hpp"
 #include "loop.hpp"
 #include "fsm_qmini.hpp"
+#include "qmini_motor_controller.hpp"
 
-#include <unitree/robot/channel/channel_publisher.hpp>
-#include <unitree/robot/channel/channel_subscriber.hpp>
-#include <unitree/idl/hg/LowCmd_.hpp>
-#include <unitree/idl/hg/LowState_.hpp>
 #include <csignal>
 #include <cmath>
 #include <memory>
 #include <mutex>
 #include <shared_mutex>
+#include <fcntl.h>
+#include <linux/joystick.h>
 
 #if defined(USE_ROS2) && defined(USE_ROS)
 #include <rclcpp/rclcpp.hpp>
@@ -34,11 +33,7 @@
 #include "matplotlibcpp.h"
 namespace plt = matplotlibcpp;
 
-static const std::string QMINI_CMD_TOPIC   = "rt/lowcmd";
-static const std::string QMINI_STATE_TOPIC = "rt/lowstate";
-using namespace unitree::common;
-using namespace unitree::robot;
-using namespace unitree_hg::msg::dds_;
+// Serial-port based motor control — no DDS topics needed
 
 // ---------- joystick raw-data structs (same as G1) ----------
 typedef union
@@ -207,18 +202,24 @@ private:
     std::vector<std::vector<float>> plot_real_joint_pos, plot_target_joint_pos;
     void Plot();
 
-    // unitree hg interface
-    void InitLowCmd();
-    uint32_t Crc32Core(uint32_t *ptr, uint32_t len);
-    void LowStateHandler(const void *message);
-    LowCmd_   unitree_low_command;
-    LowState_ unitree_low_state;
-    QminiMode mode_pr;
-    uint8_t   mode_machine;
-    QminiGamepad    gamepad;
-    QMINI_REMOTE_DATA_RX remote_data_rx;
-    ChannelPublisherPtr<LowCmd_>   lowcmd_publisher;
-    ChannelSubscriberPtr<LowState_> lowstate_subscriber;
+    // Serial-port motor interface
+    QminiMotorController motor_ctrl;
+    std::array<QminiMotorCmd, QminiMotorController::NUM_MOTORS> motor_cmd_{};
+
+    // Safety: motors start in zero-torque mode.
+    // Call motor_ctrl.enableMotors() (and set motors_armed_=true) only after
+    // explicit user input (e.g. pressing 'A' / Gamepad::A to enter GetUp).
+    // Accessible from fsm_qmini.hpp via the RL* pointer.
+    bool motors_armed_ = false;
+
+    // IMU interface (CP2102 on /dev/ttyUSB4)
+    QminiIMU imu_;
+
+    // Evdev joystick (optional, /dev/input/js0)
+    int js_fd_ = -1;
+    void initJoystick();
+    void readJoystick();
+    std::shared_ptr<LoopFunc> loop_joystick;
 
     // others
     std::vector<float> mapped_joint_positions;

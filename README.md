@@ -125,7 +125,7 @@ ip link show
 | 步骤 | 手柄 | 键盘 | 说明 |
 |------|------|------|------|
 | 1 | A | `0` | 缓慢站起（2 秒插值到站立姿态） |
-| 2 | RB+↑ | `1` | 切换到 Locomotion 运动模式 |
+| 2 | RB+↑ 或 Y | `1` | 切换到 Locomotion 运动模式 |
 | 3 | LY/LX | `W/S` `A/D` | 前后 / 左右移动 |
 | 4 | RX | `Q/E` | Yaw 旋转 |
 | 5 | LB+X | `P` | 退出运动，切回 Passive 模式 |
@@ -154,10 +154,53 @@ ip link show
 | RB+Y | `R` | 重置 Gazebo 环境 |
 | RB+X | `Enter` | Gazebo 运行 / 暂停 |
 | LB+X | `P` | 电机 Passive 模式 |
-| RB+↑ | `1` | Locomotion |
+| RB+↑ / Y | `1` | Locomotion |
 | LY / LX | `W/S` `A/D` | 前后 / 左右移动 |
 | RX | `Q/E` | Yaw 旋转 |
 | — | `Space` | 速度清零 |
+
+### 手柄诊断工具
+
+不同品牌手柄的按键 id 可能不同，提供两个诊断脚本：
+
+**真实机器人（直接读取 `/dev/input/js*`）**
+
+```bash
+# 默认读取 /dev/input/js0
+python3 scripts/test_joystick.py
+
+# 若手柄挂载在其他节点
+python3 scripts/test_joystick.py /dev/input/js1
+```
+
+示例输出：
+
+```
+BUTTON  id= 4  按下  →  Gamepad::Y      [RL 运动模式]
+BUTTON  id= 0  按下  →  Gamepad::A      [站起 GetUp]
+AXIS    id= 7  DPadY    -0.999  方向键Y → R1+↑=RL模式备选
+  ↳ Gamepad::RB_DPadUp [RL 运动模式（备选）]
+```
+
+若 id 与期望不符，修改 `src/rl_sar/src/rl_real_<ROBOT>.cpp` 中 `readJoystick()` 里对应的 `setBtn(<id>, ...)` 即可。
+
+**Gazebo 仿真（通过 ROS2 `/joy` 话题）**
+
+```bash
+source install/setup.bash
+python3 scripts/test_joy_ros.py
+```
+
+示例输出：
+
+```
+buttons[ 0]  按下  →  期望: A   → GetUp  ✅
+buttons[ 1]  按下  →  期望: B   → GetDown  ✅
+buttons[ 3]  按下  →  期望: X   → Passive  ✅
+buttons[ 4]  按下  →  期望: Y   → RL模式  ✅
+```
+
+若 index 与期望不符，修改 `src/rl_sar/src/rl_sim.cpp` 中 `JoyCallback()` 里对应的 `buttons[N]` 即可。
 
 ---
 

@@ -56,7 +56,24 @@ run_cmake_build() {
     print_warning "NOTE: CMake build is for hardware deployment only, not for simulation."
     print_separator
 
-    cmake src/rl_sar/ -B cmake_build -DUSE_CMAKE=ON
+    # Detect CUDA toolkit root for Jetson (installed via apt as cuda-12-6 or similar)
+    local cuda_root=""
+    for dir in /usr/local/cuda /usr/local/cuda-12.6 /usr/local/cuda-12; do
+        if [ -d "${dir}/bin" ]; then
+            cuda_root="$dir"
+            break
+        fi
+    done
+
+    local cmake_cuda_args=""
+    if [ -n "$cuda_root" ]; then
+        print_info "Found CUDA toolkit at: ${cuda_root}"
+        # Add nvcc to PATH so CMake find_package(CUDA) can locate it
+        export PATH="${cuda_root}/bin${PATH:+:$PATH}"
+        cmake_cuda_args="-DCUDA_TOOLKIT_ROOT_DIR=${cuda_root} -DCMAKE_CUDA_COMPILER=${cuda_root}/bin/nvcc"
+    fi
+
+    cmake src/rl_sar/ -B cmake_build -DUSE_CMAKE=ON ${cmake_cuda_args}
     cmake --build cmake_build -j$(nproc 2>/dev/null || echo 4)
 
     print_success "CMake build completed!"

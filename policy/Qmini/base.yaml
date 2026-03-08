@@ -12,8 +12,10 @@ Qmini:
   wheel_indices: []
   torque_limits: [60.0, 60.0, 60.0, 60.0, 20.0,
                   60.0, 60.0, 60.0, 60.0, 20.0]
-  default_dof_pos: [0.0, 0.0, 0.0, 0.0, 0.0,
-                    0.0, 0.0, 0.0, 0.0, 0.0]
+  # Stand pose validated from official QMiniSimAndDeploy joint logs (Joint_log_2601_06_*)
+  # Order: [l_hyaw, l_hrol, l_hpit, l_knee, l_apit, r_hyaw, r_hrol, r_hpit, r_knee, r_apit]
+  default_dof_pos: [0.55, 0.25, -1.35, 1.2, -1.02,
+                    -0.55, -0.22, 1.35, -1.24, 1.02]
   joint_names: [LL-joint1, LL-joint2, LL-joint3, LL-joint4, LL-joint5,
                 RL-joint1, RL-joint2, RL-joint3, RL-joint4, RL-joint5]
   joint_controller_names: [LL_joint1_controller, LL_joint2_controller, LL_joint3_controller, LL_joint4_controller, LL_joint5_controller,

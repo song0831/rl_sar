@@ -18,32 +18,32 @@ COLOR_RESET='\033[0m'        # Reset
 # ========================
 
 print_success() {
-    echo -e "${COLOR_SUCCESS}[SUCCESS]${COLOR_RESET} $1"
+    echo -e "${COLOR_SUCCESS}[SUCCESS]${COLOR_RESET} $1" >&2
 }
 
 print_warning() {
-    echo -e "${COLOR_WARNING}[WARNING]${COLOR_RESET} $1"
+    echo -e "${COLOR_WARNING}[WARNING]${COLOR_RESET} $1" >&2
 }
 
 print_error() {
-    echo -e "${COLOR_ERROR}[ERROR]${COLOR_RESET} $1"
+    echo -e "${COLOR_ERROR}[ERROR]${COLOR_RESET} $1" >&2
 }
 
 print_info() {
-    echo -e "${COLOR_INFO}[INFO]${COLOR_RESET} $1"
+    echo -e "${COLOR_INFO}[INFO]${COLOR_RESET} $1" >&2
 }
 
 print_debug() {
-    echo -e "${COLOR_DEBUG}[DEBUG]${COLOR_RESET} $1"
+    echo -e "${COLOR_DEBUG}[DEBUG]${COLOR_RESET} $1" >&2
 }
 
 print_separator() {
-    echo -e "${COLOR_INFO}-------------------------------------------------------------------${COLOR_RESET}"
+    echo -e "${COLOR_INFO}-------------------------------------------------------------------${COLOR_RESET}" >&2
 }
 
 print_header() {
     print_separator
-    echo -e "${COLOR_INFO}$1${COLOR_RESET}"
+    echo -e "${COLOR_INFO}$1${COLOR_RESET}" >&2
 }
 
 # ========================

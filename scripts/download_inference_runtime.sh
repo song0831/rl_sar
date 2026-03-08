@@ -22,6 +22,27 @@ source "${SCRIPT_DIR}/common.sh"
 OS_TYPE="$(uname -s)"
 ARCH_TYPE="$(uname -m)"
 
+# Function: Detect if running on Jetson
+is_jetson_platform() {
+    if [ "$(uname -s)" != "Linux" ] || [ "$(uname -m)" != "aarch64" ]; then
+        return 1
+    fi
+
+    # Check for Jetson-specific indicators
+    if [ -f /etc/nv_tegra_release ] || [ -d /usr/local/cuda-*/targets/aarch64-linux ]; then
+        return 0
+    fi
+
+    return 1
+}
+
+# Detect Jetson platform
+IS_JETSON=false
+if is_jetson_platform; then
+    IS_JETSON=true
+    print_info "Jetson platform detected"
+fi
+
 # Parse arguments: support both new and old usage
 if [ $# -eq 0 ]; then
     TARGET_DIR="library/inference_runtime"

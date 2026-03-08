@@ -283,43 +283,43 @@ void RL_Sim::JoyCallback(const sensor_msgs::msg::Joy::SharedPtr msg)
     this->joy_msg = *msg;
 
     // joystick control
-    // Description of buttons and axes(F710):
-    // |__ buttons[]: A=0, B=1, X=2, Y=3, LB=4, RB=5, back=6, start=7, power=8, stickL=9, stickR=10
-    // |__ axes[]: Lx=0, Ly=1, Rx=3, Ry=4, LT=2, RT=5, DPadX=6, DPadY=7
+    // Description of buttons and axes(Xbox Wireless Controller):
+    // |__ buttons[]: A=0, B=1, X=3, Y=4, LB=6, RB=7, back=10, start=11, stickL=13, stickR=14
+    // |__ axes[]: Lx=0, Ly=1, LT=2, Rx=3, Ry=4, RT=5, DPadX=6, DPadY=7
 
     if (this->joy_msg.buttons[0]) this->control.SetGamepad(Input::Gamepad::A);
     if (this->joy_msg.buttons[1]) this->control.SetGamepad(Input::Gamepad::B);
-    if (this->joy_msg.buttons[2]) this->control.SetGamepad(Input::Gamepad::X);
-    if (this->joy_msg.buttons[3]) this->control.SetGamepad(Input::Gamepad::Y);
-    if (this->joy_msg.buttons[4]) this->control.SetGamepad(Input::Gamepad::LB);
-    if (this->joy_msg.buttons[5]) this->control.SetGamepad(Input::Gamepad::RB);
-    if (this->joy_msg.buttons[9]) this->control.SetGamepad(Input::Gamepad::LStick);
-    if (this->joy_msg.buttons[10]) this->control.SetGamepad(Input::Gamepad::RStick);
+    if (this->joy_msg.buttons[3]) this->control.SetGamepad(Input::Gamepad::X);
+    if (this->joy_msg.buttons[4]) this->control.SetGamepad(Input::Gamepad::Y);
+    if (this->joy_msg.buttons[6]) this->control.SetGamepad(Input::Gamepad::LB);
+    if (this->joy_msg.buttons[7]) this->control.SetGamepad(Input::Gamepad::RB);
+    if (this->joy_msg.buttons[13]) this->control.SetGamepad(Input::Gamepad::LStick);
+    if (this->joy_msg.buttons[14]) this->control.SetGamepad(Input::Gamepad::RStick);
     if (this->joy_msg.axes[7] > 0) this->control.SetGamepad(Input::Gamepad::DPadUp);
     if (this->joy_msg.axes[7] < 0) this->control.SetGamepad(Input::Gamepad::DPadDown);
     if (this->joy_msg.axes[6] < 0) this->control.SetGamepad(Input::Gamepad::DPadLeft);
     if (this->joy_msg.axes[6] > 0) this->control.SetGamepad(Input::Gamepad::DPadRight);
-    if (this->joy_msg.buttons[4] && this->joy_msg.buttons[0]) this->control.SetGamepad(Input::Gamepad::LB_A);
-    if (this->joy_msg.buttons[4] && this->joy_msg.buttons[1]) this->control.SetGamepad(Input::Gamepad::LB_B);
-    if (this->joy_msg.buttons[4] && this->joy_msg.buttons[2]) this->control.SetGamepad(Input::Gamepad::LB_X);
-    if (this->joy_msg.buttons[4] && this->joy_msg.buttons[3]) this->control.SetGamepad(Input::Gamepad::LB_Y);
-    if (this->joy_msg.buttons[4] && this->joy_msg.buttons[9]) this->control.SetGamepad(Input::Gamepad::LB_LStick);
-    if (this->joy_msg.buttons[4] && this->joy_msg.buttons[10]) this->control.SetGamepad(Input::Gamepad::LB_RStick);
-    if (this->joy_msg.buttons[4] && this->joy_msg.axes[7] > 0) this->control.SetGamepad(Input::Gamepad::LB_DPadUp);
-    if (this->joy_msg.buttons[4] && this->joy_msg.axes[7] < 0) this->control.SetGamepad(Input::Gamepad::LB_DPadDown);
-    if (this->joy_msg.buttons[4] && this->joy_msg.axes[6] < 0) this->control.SetGamepad(Input::Gamepad::LB_DPadRight);
-    if (this->joy_msg.buttons[4] && this->joy_msg.axes[6] > 0) this->control.SetGamepad(Input::Gamepad::LB_DPadLeft);
-    if (this->joy_msg.buttons[5] && this->joy_msg.buttons[0]) this->control.SetGamepad(Input::Gamepad::RB_A);
-    if (this->joy_msg.buttons[5] && this->joy_msg.buttons[1]) this->control.SetGamepad(Input::Gamepad::RB_B);
-    if (this->joy_msg.buttons[5] && this->joy_msg.buttons[2]) this->control.SetGamepad(Input::Gamepad::RB_X);
-    if (this->joy_msg.buttons[5] && this->joy_msg.buttons[3]) this->control.SetGamepad(Input::Gamepad::RB_Y);
-    if (this->joy_msg.buttons[5] && this->joy_msg.buttons[9]) this->control.SetGamepad(Input::Gamepad::RB_LStick);
-    if (this->joy_msg.buttons[5] && this->joy_msg.buttons[10]) this->control.SetGamepad(Input::Gamepad::RB_RStick);
-    if (this->joy_msg.buttons[5] && this->joy_msg.axes[7] > 0) this->control.SetGamepad(Input::Gamepad::RB_DPadUp);
-    if (this->joy_msg.buttons[5] && this->joy_msg.axes[7] < 0) this->control.SetGamepad(Input::Gamepad::RB_DPadDown);
-    if (this->joy_msg.buttons[5] && this->joy_msg.axes[6] < 0) this->control.SetGamepad(Input::Gamepad::RB_DPadRight);
-    if (this->joy_msg.buttons[5] && this->joy_msg.axes[6] > 0) this->control.SetGamepad(Input::Gamepad::RB_DPadLeft);
-    if (this->joy_msg.buttons[4] && this->joy_msg.buttons[5]) this->control.SetGamepad(Input::Gamepad::LB_RB);
+    if (this->joy_msg.buttons[6] && this->joy_msg.buttons[0]) this->control.SetGamepad(Input::Gamepad::LB_A);
+    if (this->joy_msg.buttons[6] && this->joy_msg.buttons[1]) this->control.SetGamepad(Input::Gamepad::LB_B);
+    if (this->joy_msg.buttons[6] && this->joy_msg.buttons[3]) this->control.SetGamepad(Input::Gamepad::LB_X);
+    if (this->joy_msg.buttons[6] && this->joy_msg.buttons[4]) this->control.SetGamepad(Input::Gamepad::LB_Y);
+    if (this->joy_msg.buttons[6] && this->joy_msg.buttons[13]) this->control.SetGamepad(Input::Gamepad::LB_LStick);
+    if (this->joy_msg.buttons[6] && this->joy_msg.buttons[14]) this->control.SetGamepad(Input::Gamepad::LB_RStick);
+    if (this->joy_msg.buttons[6] && this->joy_msg.axes[7] > 0) this->control.SetGamepad(Input::Gamepad::LB_DPadUp);
+    if (this->joy_msg.buttons[6] && this->joy_msg.axes[7] < 0) this->control.SetGamepad(Input::Gamepad::LB_DPadDown);
+    if (this->joy_msg.buttons[6] && this->joy_msg.axes[6] < 0) this->control.SetGamepad(Input::Gamepad::LB_DPadRight);
+    if (this->joy_msg.buttons[6] && this->joy_msg.axes[6] > 0) this->control.SetGamepad(Input::Gamepad::LB_DPadLeft);
+    if (this->joy_msg.buttons[7] && this->joy_msg.buttons[0]) this->control.SetGamepad(Input::Gamepad::RB_A);
+    if (this->joy_msg.buttons[7] && this->joy_msg.buttons[1]) this->control.SetGamepad(Input::Gamepad::RB_B);
+    if (this->joy_msg.buttons[7] && this->joy_msg.buttons[3]) this->control.SetGamepad(Input::Gamepad::RB_X);
+    if (this->joy_msg.buttons[7] && this->joy_msg.buttons[4]) this->control.SetGamepad(Input::Gamepad::RB_Y);
+    if (this->joy_msg.buttons[7] && this->joy_msg.buttons[13]) this->control.SetGamepad(Input::Gamepad::RB_LStick);
+    if (this->joy_msg.buttons[7] && this->joy_msg.buttons[14]) this->control.SetGamepad(Input::Gamepad::RB_RStick);
+    if (this->joy_msg.buttons[7] && this->joy_msg.axes[7] > 0) this->control.SetGamepad(Input::Gamepad::RB_DPadUp);
+    if (this->joy_msg.buttons[7] && this->joy_msg.axes[7] < 0) this->control.SetGamepad(Input::Gamepad::RB_DPadDown);
+    if (this->joy_msg.buttons[7] && this->joy_msg.axes[6] < 0) this->control.SetGamepad(Input::Gamepad::RB_DPadRight);
+    if (this->joy_msg.buttons[7] && this->joy_msg.axes[6] > 0) this->control.SetGamepad(Input::Gamepad::RB_DPadLeft);
+    if (this->joy_msg.buttons[6] && this->joy_msg.buttons[7]) this->control.SetGamepad(Input::Gamepad::LB_RB);
 
     this->control.x = this->joy_msg.axes[1]; // LY
     this->control.y = this->joy_msg.axes[0]; // LX

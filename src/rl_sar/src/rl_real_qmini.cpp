@@ -34,19 +34,20 @@ RL_Real::RL_Real(int argc, char **argv)
     }
 
     // init robot
-    this->mode_pr      = QminiMode::PR;
-    this->mode_machine = 0;
-    this->InitLowCmd();
     this->InitJointNum(this->params.Get<int>("num_of_dofs"));
     this->InitOutputs();
     this->InitControl();
 
-    // create lowcmd publisher
-    this->lowcmd_publisher.reset(new ChannelPublisher<LowCmd_>(QMINI_CMD_TOPIC));
-    this->lowcmd_publisher->InitChannel();
-    // create lowstate subscriber
-    this->lowstate_subscriber.reset(new ChannelSubscriber<LowState_>(QMINI_STATE_TOPIC));
-    this->lowstate_subscriber->InitChannel(std::bind(&RL_Real::LowStateHandler, this, std::placeholders::_1), 1);
+    // init joystick (evdev /dev/input/js0)
+    this->initJoystick();
+
+    std::cout << std::endl
+              << LOGGER::NOTE << "=========================================" << std::endl
+              << LOGGER::NOTE << " SAFE MODE: Motors are in ZERO-TORQUE.   " << std::endl
+              << LOGGER::NOTE << " Place the robot on the ground first!     " << std::endl
+              << LOGGER::NOTE << " Press '0' (keyboard) or 'A' (gamepad)   " << std::endl
+              << LOGGER::NOTE << " to ARM motors and enter GetUp.           " << std::endl
+              << LOGGER::NOTE << "=========================================" << std::endl;
 
     // loop
     this->loop_keyboard = std::make_shared<LoopFunc>("loop_keyboard", 0.05, std::bind(&RL_Real::KeyboardInterface, this));
@@ -55,6 +56,11 @@ RL_Real::RL_Real(int argc, char **argv)
     this->loop_keyboard->start();
     this->loop_control->start();
     this->loop_rl->start();
+    if (this->js_fd_ >= 0)
+    {
+        this->loop_joystick = std::make_shared<LoopFunc>("loop_joystick", 0.02, std::bind(&RL_Real::readJoystick, this));
+        this->loop_joystick->start();
+    }
 
 #ifdef PLOT
     this->plot_t = std::vector<int>(this->plot_size, 0);
@@ -75,6 +81,8 @@ RL_Real::~RL_Real()
     this->loop_keyboard->shutdown();
     this->loop_control->shutdown();
     this->loop_rl->shutdown();
+    if (this->loop_joystick) this->loop_joystick->shutdown();
+    if (this->js_fd_ >= 0) close(this->js_fd_);
 #ifdef PLOT
     this->loop_plot->shutdown();
 #endif
@@ -83,91 +91,71 @@ RL_Real::~RL_Real()
 
 void RL_Real::GetState(RobotState<float> *state)
 {
-    if (this->mode_machine != this->unitree_low_state.mode_machine())
+    // Read motor feedback from serial
+    auto ms = this->motor_ctrl.getState();
+    const auto &jmap = this->params.Get<std::vector<int>>("joint_mapping");
+    const int ndof   = this->params.Get<int>("num_of_dofs");
+
+    for (int i = 0; i < ndof; ++i)
     {
-        if (this->mode_machine == 0)
-        {
-            std::cout << "Qmini type: " << unsigned(this->unitree_low_state.mode_machine()) << std::endl;
-        }
-        this->mode_machine = this->unitree_low_state.mode_machine();
+        int hw_idx = jmap[i];
+        state->motor_state.q[i]       = ms[hw_idx].q;
+        state->motor_state.dq[i]      = ms[hw_idx].dq;
+        state->motor_state.tau_est[i] = ms[hw_idx].tau;
     }
 
-    memcpy(this->remote_data_rx.buff, &unitree_low_state.wireless_remote()[0], 40);
-    this->gamepad.update(this->remote_data_rx.RF_RX);
-
-    if (this->gamepad.A.pressed)  this->control.SetGamepad(Input::Gamepad::A);
-    if (this->gamepad.B.pressed)  this->control.SetGamepad(Input::Gamepad::B);
-    if (this->gamepad.X.pressed)  this->control.SetGamepad(Input::Gamepad::X);
-    if (this->gamepad.Y.pressed)  this->control.SetGamepad(Input::Gamepad::Y);
-    if (this->gamepad.R1.pressed) this->control.SetGamepad(Input::Gamepad::RB);
-    if (this->gamepad.L1.pressed) this->control.SetGamepad(Input::Gamepad::LB);
-    if (this->gamepad.F1.pressed) this->control.SetGamepad(Input::Gamepad::LStick);
-    if (this->gamepad.F2.pressed) this->control.SetGamepad(Input::Gamepad::RStick);
-    if (this->gamepad.up.pressed)    this->control.SetGamepad(Input::Gamepad::DPadUp);
-    if (this->gamepad.down.pressed)  this->control.SetGamepad(Input::Gamepad::DPadDown);
-    if (this->gamepad.left.pressed)  this->control.SetGamepad(Input::Gamepad::DPadLeft);
-    if (this->gamepad.right.pressed) this->control.SetGamepad(Input::Gamepad::DPadRight);
-    if (this->gamepad.L1.pressed && this->gamepad.A.pressed)    this->control.SetGamepad(Input::Gamepad::LB_A);
-    if (this->gamepad.L1.pressed && this->gamepad.B.pressed)    this->control.SetGamepad(Input::Gamepad::LB_B);
-    if (this->gamepad.L1.pressed && this->gamepad.X.pressed)    this->control.SetGamepad(Input::Gamepad::LB_X);
-    if (this->gamepad.L1.pressed && this->gamepad.Y.pressed)    this->control.SetGamepad(Input::Gamepad::LB_Y);
-    if (this->gamepad.L1.pressed && this->gamepad.F1.pressed)   this->control.SetGamepad(Input::Gamepad::LB_LStick);
-    if (this->gamepad.L1.pressed && this->gamepad.F2.pressed)   this->control.SetGamepad(Input::Gamepad::LB_RStick);
-    if (this->gamepad.L1.pressed && this->gamepad.up.pressed)   this->control.SetGamepad(Input::Gamepad::LB_DPadUp);
-    if (this->gamepad.L1.pressed && this->gamepad.down.pressed) this->control.SetGamepad(Input::Gamepad::LB_DPadDown);
-    if (this->gamepad.L1.pressed && this->gamepad.left.pressed) this->control.SetGamepad(Input::Gamepad::LB_DPadLeft);
-    if (this->gamepad.L1.pressed && this->gamepad.right.pressed) this->control.SetGamepad(Input::Gamepad::LB_DPadRight);
-    if (this->gamepad.R1.pressed && this->gamepad.A.pressed)    this->control.SetGamepad(Input::Gamepad::RB_A);
-    if (this->gamepad.R1.pressed && this->gamepad.B.pressed)    this->control.SetGamepad(Input::Gamepad::RB_B);
-    if (this->gamepad.R1.pressed && this->gamepad.X.pressed)    this->control.SetGamepad(Input::Gamepad::RB_X);
-    if (this->gamepad.R1.pressed && this->gamepad.Y.pressed)    this->control.SetGamepad(Input::Gamepad::RB_Y);
-    if (this->gamepad.R1.pressed && this->gamepad.F1.pressed)   this->control.SetGamepad(Input::Gamepad::RB_LStick);
-    if (this->gamepad.R1.pressed && this->gamepad.F2.pressed)   this->control.SetGamepad(Input::Gamepad::RB_RStick);
-    if (this->gamepad.R1.pressed && this->gamepad.up.pressed)   this->control.SetGamepad(Input::Gamepad::RB_DPadUp);
-    if (this->gamepad.R1.pressed && this->gamepad.down.pressed) this->control.SetGamepad(Input::Gamepad::RB_DPadDown);
-    if (this->gamepad.R1.pressed && this->gamepad.left.pressed) this->control.SetGamepad(Input::Gamepad::RB_DPadLeft);
-    if (this->gamepad.R1.pressed && this->gamepad.right.pressed) this->control.SetGamepad(Input::Gamepad::RB_DPadRight);
-    if (this->gamepad.L1.pressed && this->gamepad.R1.pressed)   this->control.SetGamepad(Input::Gamepad::LB_RB);
-
-    this->control.x   =  this->gamepad.ly;
-    this->control.y   = -this->gamepad.lx;
-    this->control.yaw = -this->gamepad.rx;
-
-    state->imu.quaternion[0] = this->unitree_low_state.imu_state().quaternion()[0]; // w
-    state->imu.quaternion[1] = this->unitree_low_state.imu_state().quaternion()[1]; // x
-    state->imu.quaternion[2] = this->unitree_low_state.imu_state().quaternion()[2]; // y
-    state->imu.quaternion[3] = this->unitree_low_state.imu_state().quaternion()[3]; // z
-
-    for (int i = 0; i < 3; ++i)
+    // IMU (CP2102 on /dev/ttyUSB4)
+    auto imu = this->imu_.get();
+    if (imu.valid)
     {
-        state->imu.gyroscope[i] = this->unitree_low_state.imu_state().gyroscope()[i];
+        state->imu.quaternion[0] = imu.qw;
+        state->imu.quaternion[1] = imu.qx;
+        state->imu.quaternion[2] = imu.qy;
+        state->imu.quaternion[3] = imu.qz;
+        state->imu.gyroscope[0]  = imu.gyro_x;
+        state->imu.gyroscope[1]  = imu.gyro_y;
+        state->imu.gyroscope[2]  = imu.gyro_z;
     }
-    for (int i = 0; i < this->params.Get<int>("num_of_dofs"); ++i)
+    else
     {
-        state->motor_state.q[i]       = this->unitree_low_state.motor_state()[this->params.Get<std::vector<int>>("joint_mapping")[i]].q();
-        state->motor_state.dq[i]      = this->unitree_low_state.motor_state()[this->params.Get<std::vector<int>>("joint_mapping")[i]].dq();
-        state->motor_state.tau_est[i] = this->unitree_low_state.motor_state()[this->params.Get<std::vector<int>>("joint_mapping")[i]].tau_est();
+        // IMU not ready yet — stay upright
+        state->imu.quaternion[0] = 1.f;
+        state->imu.quaternion[1] = 0.f;
+        state->imu.quaternion[2] = 0.f;
+        state->imu.quaternion[3] = 0.f;
+        state->imu.gyroscope[0]  = 0.f;
+        state->imu.gyroscope[1]  = 0.f;
+        state->imu.gyroscope[2]  = 0.f;
     }
 }
 
 void RL_Real::SetCommand(const RobotCommand<float> *command)
 {
-    this->unitree_low_command.mode_pr()      = static_cast<uint8_t>(this->mode_pr);
-    this->unitree_low_command.mode_machine() = this->mode_machine;
+    const auto &jmap = this->params.Get<std::vector<int>>("joint_mapping");
+    const int ndof   = this->params.Get<int>("num_of_dofs");
 
-    for (int i = 0; i < this->params.Get<int>("num_of_dofs"); ++i)
+    for (int i = 0; i < ndof; ++i)
     {
-        int idx = this->params.Get<std::vector<int>>("joint_mapping")[i];
-        this->unitree_low_command.motor_cmd()[idx].mode() = 1; // 1:Enable, 0:Disable
-        this->unitree_low_command.motor_cmd()[idx].q()    = command->motor_command.q[i];
-        this->unitree_low_command.motor_cmd()[idx].dq()   = command->motor_command.dq[i];
-        this->unitree_low_command.motor_cmd()[idx].kp()   = command->motor_command.kp[i];
-        this->unitree_low_command.motor_cmd()[idx].kd()   = command->motor_command.kd[i];
-        this->unitree_low_command.motor_cmd()[idx].tau()  = command->motor_command.tau[i];
+        int hw_idx = jmap[i];
+        if (this->motors_armed_)
+        {
+            this->motor_cmd_[hw_idx].q   = command->motor_command.q[i];
+            this->motor_cmd_[hw_idx].dq  = command->motor_command.dq[i];
+            this->motor_cmd_[hw_idx].kp  = command->motor_command.kp[i];
+            this->motor_cmd_[hw_idx].kd  = command->motor_command.kd[i];
+            this->motor_cmd_[hw_idx].tau = command->motor_command.tau[i];
+        }
+        else
+        {
+            // Safety gate: motors not armed yet — send zero torque (back-drivable)
+            this->motor_cmd_[hw_idx].q   = 0.f;
+            this->motor_cmd_[hw_idx].dq  = 0.f;
+            this->motor_cmd_[hw_idx].kp  = 0.f;
+            this->motor_cmd_[hw_idx].kd  = 0.f;
+            this->motor_cmd_[hw_idx].tau = 0.f;
+        }
     }
-
-    this->unitree_low_command.crc() = Crc32Core((uint32_t *)&unitree_low_command, (sizeof(LowCmd_) >> 2) - 1);
-    lowcmd_publisher->Write(unitree_low_command);
+    this->motor_ctrl.setCommand(this->motor_cmd_);
 }
 
 void RL_Real::RobotControl()
@@ -175,6 +163,42 @@ void RL_Real::RobotControl()
     this->GetState(&this->robot_state);
 
     this->StateController(&this->robot_state, &this->robot_command);
+
+    // Arm motors when FSM leaves Passive (i.e., user pressed 'A' / Gamepad::A)
+    if (!this->motors_armed_ && this->fsm.current_state_ &&
+        this->fsm.current_state_->GetStateName() != "RLFSMStatePassive")
+    {
+        this->motor_ctrl.enableMotors();
+        this->motors_armed_ = true;
+        std::cout << std::endl << LOGGER::NOTE
+                  << "Motors ARMED — FSM entered "
+                  << this->fsm.current_state_->GetStateName() << std::endl;
+    }
+
+    // In safe mode (not armed): print joint positions + IMU at ~1 Hz so the
+    // user can verify sensors are working before pressing 'A'.
+    if (!this->motors_armed_)
+    {
+        static int diag_counter = 0;
+        if (++diag_counter >= 200)   // 200 * 5ms = 1s
+        {
+            diag_counter = 0;
+            const auto &q  = this->robot_state.motor_state.q;
+            const auto &qd = this->robot_state.motor_state.dq;
+            const auto &qt = this->robot_state.imu.quaternion;
+            const auto &gyr = this->robot_state.imu.gyroscope;
+            // Joint positions (hardware order 0-9)
+            std::cout << "\r\033[K" << std::flush;
+            std::printf("[DIAG] q(rad): ");
+            for (int i = 0; i < (int)q.size(); ++i)
+                std::printf("%6.3f ", q[i]);
+            std::printf("\n");
+            // IMU quaternion + gyro
+            std::printf("[DIAG] IMU qw=%6.3f qx=%6.3f qy=%6.3f qz=%6.3f  gyr: %6.3f %6.3f %6.3f\n",
+                qt[0], qt[1], qt[2], qt[3], gyr[0], gyr[1], gyr[2]);
+            std::fflush(stdout);
+        }
+    }
 
     this->control.ClearInput();
 
@@ -255,12 +279,13 @@ void RL_Real::Plot()
     this->plot_t.push_back(this->motiontime);
     plt::cla();
     plt::clf();
+    auto ms = this->motor_ctrl.getState();
     for (int i = 0; i < this->params.Get<int>("num_of_dofs"); ++i)
     {
         this->plot_real_joint_pos[i].erase(this->plot_real_joint_pos[i].begin());
         this->plot_target_joint_pos[i].erase(this->plot_target_joint_pos[i].begin());
-        this->plot_real_joint_pos[i].push_back(this->unitree_low_state.motor_state()[i].q());
-        this->plot_target_joint_pos[i].push_back(this->unitree_low_command.motor_cmd()[i].q());
+        this->plot_real_joint_pos[i].push_back(ms[i].q);
+        this->plot_target_joint_pos[i].push_back(this->motor_cmd_[i].q);
         plt::subplot(this->params.Get<int>("num_of_dofs"), 1, i + 1);
         plt::named_plot("_real_joint_pos",   this->plot_t, this->plot_real_joint_pos[i],   "r");
         plt::named_plot("_target_joint_pos", this->plot_t, this->plot_target_joint_pos[i], "b");
@@ -269,51 +294,128 @@ void RL_Real::Plot()
     plt::pause(0.0001);
 }
 
-uint32_t RL_Real::Crc32Core(uint32_t *ptr, uint32_t len)
+void RL_Real::initJoystick()
 {
-    unsigned int xbit = 0;
-    unsigned int data = 0;
-    unsigned int CRC32 = 0xFFFFFFFF;
-    const unsigned int dwPolynomial = 0x04c11db7;
+    const char *js_path = "/dev/input/js0";
+    this->js_fd_ = open(js_path, O_RDONLY | O_NONBLOCK);
+    if (this->js_fd_ < 0)
+        std::cout << LOGGER::WARNING << "Joystick not found at " << js_path
+                  << ", gamepad disabled (keyboard still works)" << std::endl;
+    else
+        std::cout << LOGGER::INFO << "Joystick opened: " << js_path << std::endl;
+}
 
-    for (unsigned int i = 0; i < len; ++i)
+void RL_Real::readJoystick()
+{
+    if (this->js_fd_ < 0) return;
+
+    struct js_event e;
+    static std::array<float, 16> axes_{};
+    static std::array<bool, 32>  btns_{};
+    // Debug log file (always open/close to avoid buffering)
+    auto js_log = [](const char *msg) {
+        FILE *f = fopen("/tmp/js_debug.txt", "a");
+        if (f) { fputs(msg, f); fclose(f); }
+    };
+
+    while (read(this->js_fd_, &e, sizeof(e)) > 0)
     {
-        xbit = 1 << 31;
-        data = ptr[i];
-        for (unsigned int bits = 0; bits < 32; bits++)
+        // Skip synthetic init events
+        if (e.type & JS_EVENT_INIT) continue;
+
+        if (e.type & JS_EVENT_BUTTON)
         {
-            if (CRC32 & 0x80000000)
+            int id = e.number;
+            bool pressed = e.value != 0;
+            if (id < (int)btns_.size()) btns_[id] = pressed;
+
+            // Debug: write to file (unbuffered, SSH-safe)
             {
-                CRC32 <<= 1;
-                CRC32 ^= dwPolynomial;
+                char buf[128];
+                snprintf(buf, sizeof(buf), "[JS] BUTTON id=%d val=%d  btns[4]=%d btns[5]=%d\n",
+                    id, (int)pressed, (int)btns_[4], (int)btns_[5]);
+                js_log(buf);
             }
-            else
-            {
-                CRC32 <<= 1;
+
+            // Qmini gamepad layout (from official joystick.py):
+            // A=0, B=1, X=3, Y=4, L1=6, R1=7, L2=8, R2=9, SELECT=10, START=11
+            // DPad is reported as hat (axis 6/7), not buttons
+            auto setBtn = [&](int bid, Input::Gamepad g){ if(id==bid && pressed) this->control.SetGamepad(g); };
+            setBtn(0,  Input::Gamepad::A);
+            setBtn(1,  Input::Gamepad::B);
+            setBtn(3,  Input::Gamepad::X);
+            setBtn(4,  Input::Gamepad::Y);
+            setBtn(6,  Input::Gamepad::LB);
+            setBtn(7,  Input::Gamepad::RB);
+            setBtn(10, Input::Gamepad::LStick);   // SELECT
+            setBtn(11, Input::Gamepad::RStick);   // START
+
+            // Combo: L1(6) + face buttons
+            if (btns_[6]) {
+                if (id==0 && pressed) this->control.SetGamepad(Input::Gamepad::LB_A);
+                if (id==1 && pressed) this->control.SetGamepad(Input::Gamepad::LB_B);
+                if (id==3 && pressed) this->control.SetGamepad(Input::Gamepad::LB_X);
+                if (id==4 && pressed) this->control.SetGamepad(Input::Gamepad::LB_Y);
             }
-            if (data & xbit) { CRC32 ^= dwPolynomial; }
-            xbit >>= 1;
+            // Combo: R1(7) + face buttons
+            if (btns_[7]) {
+                if (id==0 && pressed) this->control.SetGamepad(Input::Gamepad::RB_A);
+                if (id==1 && pressed) this->control.SetGamepad(Input::Gamepad::RB_B);
+                if (id==3 && pressed) this->control.SetGamepad(Input::Gamepad::RB_X);
+                if (id==4 && pressed) this->control.SetGamepad(Input::Gamepad::RB_Y);
+            }
+            if (btns_[6] && btns_[7] && pressed) this->control.SetGamepad(Input::Gamepad::LB_RB);
+        }
+        else if (e.type & JS_EVENT_AXIS)
+        {
+            int id = e.number;
+            float val = e.value / 32767.f;
+            if (id < (int)axes_.size()) axes_[id] = val;
+
+            // Axis layout (Qmini gamepad, from official joystick.py):
+            // 0=LX, 1=LY, 2=RX, 3=RY, 4=L2(trigger), 5=R2(trigger), 6=DPadX, 7=DPadY
+            this->control.x   = -axes_[1];  // LY up=forward
+            this->control.y   = -axes_[0];  // LX left=strafe
+            this->control.yaw = -axes_[2];  // RX left=yaw left
+
+            // DPad as axis (hat): axis6=DPadX, axis7=DPadY
+            if (id == 6) {
+                if (val >  0.5f) { this->control.SetGamepad(Input::Gamepad::DPadRight);
+                    if (btns_[7]) this->control.SetGamepad(Input::Gamepad::RB_DPadRight);
+                    if (btns_[6]) this->control.SetGamepad(Input::Gamepad::LB_DPadRight); }
+                if (val < -0.5f) { this->control.SetGamepad(Input::Gamepad::DPadLeft);
+                    if (btns_[7]) this->control.SetGamepad(Input::Gamepad::RB_DPadLeft);
+                    if (btns_[6]) this->control.SetGamepad(Input::Gamepad::LB_DPadLeft); }
+            }
+            if (id == 7) {
+                if (val >  0.5f) { this->control.SetGamepad(Input::Gamepad::DPadDown);
+                    if (btns_[7]) this->control.SetGamepad(Input::Gamepad::RB_DPadDown);
+                    if (btns_[6]) this->control.SetGamepad(Input::Gamepad::LB_DPadDown); }
+                if (val < -0.5f) { this->control.SetGamepad(Input::Gamepad::DPadUp);
+                    if (btns_[7]) this->control.SetGamepad(Input::Gamepad::RB_DPadUp);
+                    if (btns_[6]) this->control.SetGamepad(Input::Gamepad::LB_DPadUp); }
+            }
         }
     }
-    return CRC32;
-}
 
-void RL_Real::InitLowCmd()
-{
-    for (int i = 0; i < 32; ++i)
-    {
-        this->unitree_low_command.motor_cmd()[i].mode() = 1; // 1:Enable, 0:Disable
-        this->unitree_low_command.motor_cmd()[i].q()    = 0;
-        this->unitree_low_command.motor_cmd()[i].kp()   = 0;
-        this->unitree_low_command.motor_cmd()[i].dq()   = 0;
-        this->unitree_low_command.motor_cmd()[i].kd()   = 0;
-        this->unitree_low_command.motor_cmd()[i].tau()  = 0;
-    }
-}
-
-void RL_Real::LowStateHandler(const void *message)
-{
-    this->unitree_low_state = *(const LowState_ *)message;
+    // Re-assert held button state every cycle so ClearInput() between
+    // joystick polls does not swallow a briefly-held button press.
+    // Priority: combos first, then single buttons.
+    if      (btns_[6] && btns_[7]) this->control.SetGamepad(Input::Gamepad::LB_RB);
+    else if (btns_[6] && btns_[0]) this->control.SetGamepad(Input::Gamepad::LB_A);
+    else if (btns_[6] && btns_[1]) this->control.SetGamepad(Input::Gamepad::LB_B);
+    else if (btns_[6] && btns_[3]) this->control.SetGamepad(Input::Gamepad::LB_X);
+    else if (btns_[6] && btns_[4]) this->control.SetGamepad(Input::Gamepad::LB_Y);
+    else if (btns_[7] && btns_[0]) this->control.SetGamepad(Input::Gamepad::RB_A);
+    else if (btns_[7] && btns_[1]) this->control.SetGamepad(Input::Gamepad::RB_B);
+    else if (btns_[7] && btns_[3]) this->control.SetGamepad(Input::Gamepad::RB_X);
+    else if (btns_[7] && btns_[4]) this->control.SetGamepad(Input::Gamepad::RB_Y);
+    else if (btns_[0]) this->control.SetGamepad(Input::Gamepad::A);
+    else if (btns_[1]) this->control.SetGamepad(Input::Gamepad::B);
+    else if (btns_[3]) this->control.SetGamepad(Input::Gamepad::X);
+    else if (btns_[4]) this->control.SetGamepad(Input::Gamepad::Y);
+    else if (btns_[6]) this->control.SetGamepad(Input::Gamepad::LB);
+    else if (btns_[7]) this->control.SetGamepad(Input::Gamepad::RB);
 }
 
 #if !defined(USE_CMAKE) && defined(USE_ROS)
@@ -325,13 +427,8 @@ void RL_Real::CmdvelCallback(const geometry_msgs::msg::Twist::SharedPtr msg)
 
 int main(int argc, char **argv)
 {
-    if (argc < 2)
-    {
-        std::cout << LOGGER::ERROR << "Usage: " << argv[0] << " networkInterface" << std::endl;
-        throw std::runtime_error("Invalid arguments");
-    }
-    ChannelFactory::Instance()->Init(0, argv[1]);
-
+    // networkInterface argument no longer needed (serial port, not DDS)
+    // kept for CLI compatibility but ignored
 #if defined(USE_ROS2) && defined(USE_ROS)
     rclcpp::init(argc, argv);
     auto rl_sar = std::make_shared<RL_Real>(argc, argv);
