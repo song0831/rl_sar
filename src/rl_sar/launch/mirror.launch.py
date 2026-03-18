@@ -1,9 +1,18 @@
 # Copyright (c) 2024-2025 Ziqi Fan
 # SPDX-License-Identifier: Apache-2.0
+#
+# mirror.launch.py — Launch Gazebo with the robot FIXED in the air for joint mirror testing.
+#
+# Usage:
+#   ros2 launch rl_sar mirror.launch.py rname:=Qmini
+#
+# The robot's base_link is fixed to the world via a fixed joint, so it hangs
+# in the air and you can observe each joint's motion independently.
+# No rviz is launched to save resources.
 
 import os
 from launch import LaunchDescription
-from launch.actions import IncludeLaunchDescription, DeclareLaunchArgument, OpaqueFunction, TimerAction
+from launch.actions import IncludeLaunchDescription, DeclareLaunchArgument, OpaqueFunction
 from launch.launch_description_sources import PythonLaunchDescriptionSource
 from launch.substitutions import LaunchConfiguration, TextSubstitution, Command
 from launch_ros.actions import Node
@@ -15,17 +24,27 @@ def launch_setup(context, *args, **kwargs):
     rname = LaunchConfiguration("rname").perform(context)
     spawn_z = LaunchConfiguration("spawn_z")
 
-    wname = "stairs"
+    wname = "earth"  # simple flat world, no stairs
     rl_sar_share = get_package_share_directory("rl_sar")
 
     robot_name = ParameterValue(rname, value_type=str)
     gazebo_model_name = ParameterValue(rname + "_gazebo", value_type=str)
 
+    # Build robot description with an extra fixed joint to world
+    # This pins the robot's base_link in the air so it cannot fall or fly away
     robot_description = ParameterValue(
         Command([
+            "bash -c \"",
             "xacro ",
-            Command(["echo -n ", Command(["ros2 pkg prefix ", rname, "_description"])]),
-            "/share/", rname, "_description/xacro/robot.xacro"
+            "$(ros2 pkg prefix ", rname, "_description)/share/", rname, "_description/xacro/robot.xacro",
+            " | sed '/<robot /a\\",
+            "  <link name=\\\"world\\\"/>\\n",
+            "  <joint name=\\\"fixed_base_joint\\\" type=\\\"fixed\\\">\\n",
+            "    <parent link=\\\"world\\\"/>\\n",
+            "    <child link=\\\"base_link\\\"/>\\n",
+            "    <origin xyz=\\\"0 0 0.5\\\" rpy=\\\"0 0 0\\\"/>\\n",
+            "  </joint>",
+            "'\"",
         ]),
         value_type=str
     )
@@ -43,8 +62,6 @@ def launch_setup(context, *args, **kwargs):
             os.path.join(get_package_share_directory("gazebo_ros"), "launch", "gazebo.launch.py")
         ),
         launch_arguments={
-            # "verbose": "true",
-            # "pause": "true",  # Not Available
             "world": os.path.join(rl_sar_share, "worlds", wname + ".world"),
         }.items(),
     )
@@ -55,7 +72,6 @@ def launch_setup(context, *args, **kwargs):
         arguments=[
             "-topic", "/robot_description",
             "-entity", "robot_model",
-            "-z", spawn_z,
         ],
         output="screen",
     )
@@ -64,13 +80,6 @@ def launch_setup(context, *args, **kwargs):
         package="controller_manager",
         executable='spawner.py' if os.environ.get('ROS_DISTRO', '') == 'foxy' else 'spawner',
         arguments=["joint_state_broadcaster"],
-        output="screen",
-    )
-
-    robot_joint_controller_node = Node(
-        package="controller_manager",
-        executable='spawner.py' if os.environ.get('ROS_DISTRO', '') == 'foxy' else 'spawner',
-        arguments=["robot_joint_controller"],
         output="screen",
     )
 
@@ -95,29 +104,15 @@ def launch_setup(context, *args, **kwargs):
         }],
     )
 
-    # Select robot-specific rviz config if available, otherwise fall back to default
-    rviz_robot_cfg = os.path.join(rl_sar_share, "rviz", f"robot_{rname}.rviz")
-    rviz_default_cfg = os.path.join(rl_sar_share, "rviz", "robot.rviz")
-    rviz_cfg = rviz_robot_cfg if os.path.exists(rviz_robot_cfg) else rviz_default_cfg
-
-    rviz_node = Node(
-        package="rviz2",
-        executable="rviz2",
-        name="rviz2",
-        output="screen",
-        arguments=["-d", rviz_cfg],
-        parameters=[{"use_sim_time": True}],
-    )
+    # No rviz — keep it lightweight for mirror testing
 
     return [
         robot_state_publisher_node,
         gazebo,
-        TimerAction(period=3.0, actions=[spawn_entity]),
-        TimerAction(period=5.0, actions=[joint_state_broadcaster_node]),
-        # robot_joint_controller_node,  # Spawn in rl_sim.cpp
+        spawn_entity,
+        joint_state_broadcaster_node,
         joy_node,
         param_node,
-        rviz_node,
     ]
 
 
@@ -125,13 +120,13 @@ def generate_launch_description():
     return LaunchDescription([
         DeclareLaunchArgument(
             "rname",
-            description="Robot name (e.g., g1, ATOM01, Qmini)",
-            default_value=TextSubstitution(text=""),
+            description="Robot name (e.g., Qmini)",
+            default_value=TextSubstitution(text="Qmini"),
         ),
         DeclareLaunchArgument(
             "spawn_z",
-            description="Spawn height in meters (e.g., 0.90 for g1, 0.75 for ATOM01, 0.40 for Qmini)",
-            default_value=TextSubstitution(text="0.40"),
+            description="Spawn height (ignored — robot is fixed at 0.5m)",
+            default_value=TextSubstitution(text="0.50"),
         ),
         OpaqueFunction(function=launch_setup),
     ])

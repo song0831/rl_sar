@@ -69,9 +69,10 @@ public:
         std::vector<int> motorIDs;
     };
 
-    // Mechanical zero offsets [rad] in SDK/hardware order (motor 0..9)
-    // Adapted from QMiniSimAndDeploy Startq array
-    const std::array<float, NUM_MOTORS> startq =
+    // Mechanical zero offsets [rad] in SDK/hardware order (motor 0..9).
+    // Loaded from base.yaml encoder_offsets at runtime; can be overridden by
+    // rl_calib_qmini after re-calibration.
+    std::array<float, NUM_MOTORS> startq =
         {0.10f, 0.05f, 2.07f, 0.01f, 1.60f,
          1.14f, 0.32f,-0.88f, 1.29f,-0.87f};
 
@@ -81,16 +82,27 @@ public:
 
     QminiMotorController()
     {
-        // Resolve serial port paths (prefer by-id, fall back to ttyUSB)
         resolveSerialPorts();
         initializeSerialPorts();
-
-        // Start one thread per serial port group
         running_ = true;
         for (int i = 0; i < 4; ++i)
             worker_threads_[i] = std::thread(&QminiMotorController::runThread, this, i);
-
         std::cout << "[QminiMotorController] Serial motor threads started." << std::endl;
+    }
+
+    // Construct with external encoder offsets (loaded from yaml)
+    explicit QminiMotorController(const std::array<float, NUM_MOTORS> &offsets)
+    {
+        startq = offsets;
+        resolveSerialPorts();
+        initializeSerialPorts();
+        running_ = true;
+        for (int i = 0; i < 4; ++i)
+            worker_threads_[i] = std::thread(&QminiMotorController::runThread, this, i);
+        std::cout << "[QminiMotorController] Serial motor threads started." << std::endl;
+        std::cout << "[QminiMotorController] encoder_offsets loaded: ";
+        for (float v : startq) std::cout << v << " ";
+        std::cout << std::endl;
     }
 
     ~QminiMotorController()
@@ -125,6 +137,25 @@ public:
         return motor_state_;
     }
 
+    // Returns per-motor connection status (true = motor replied recently)
+    std::array<bool, NUM_MOTORS> getMotorStatus() const
+    {
+        std::array<bool, NUM_MOTORS> s{};
+        for (int i = 0; i < NUM_MOTORS; ++i)
+            s[i] = motor_connected_[i].load();
+        return s;
+    }
+
+    // Prints a one-line summary of all motor connection states
+    void printMotorStatus() const
+    {
+        auto s = getMotorStatus();
+        std::cout << "[QminiMotorController] Motor status: ";
+        for (int i = 0; i < NUM_MOTORS; ++i)
+            std::cout << "M" << i << ":" << (s[i] ? "OK" : "NO") << " ";
+        std::cout << std::endl;
+    }
+
 private:
     std::vector<SerialGroup>                serial_groups_;
     std::vector<std::unique_ptr<SerialPort>> serial_ports_;
@@ -137,6 +168,9 @@ private:
     std::atomic<bool> running_{false};
     std::atomic<bool> motors_enabled_{false};  // safety gate: no torque until armed
     std::array<std::thread, 4> worker_threads_;
+
+    // Per-motor connection status: true = replied in last cycle
+    std::array<std::atomic<bool>, NUM_MOTORS> motor_connected_{};
 
     // Motor IDs 1 and 6 have an extra gear stage
     bool isSpecialMotor(int id) const { return id == 1 || id == 6; }
@@ -207,9 +241,6 @@ private:
         SerialPort &serial = *serial_ports_[groupIdx];
         const std::vector<int> &ids = serial_groups_[groupIdx].motorIDs;
 
-        // Rate: each group has 2-3 motors; target ~200 Hz per group
-        // so overall control bandwidth is ~200 Hz per motor.
-        // A 2 ms sleep per iteration limits max rate to ~500 Hz.
         using clock = std::chrono::steady_clock;
         const auto period = std::chrono::microseconds(2000); // 2 ms = 500 Hz
 
@@ -240,12 +271,6 @@ private:
 
                 if (armed)
                 {
-                    // Convert joint-space kp/kd → motor-axis kp/kd
-                    // The motor protocol uses motor-axis coordinates:
-                    //   tau = kp*(q_cmd - q) + kd*(dq_cmd - dq)   [all in motor-axis rad]
-                    // But rl_sar passes joint-space kp/kd (same as sim).
-                    // Relation: kp_motor = kp_joint / ratio^2
-                    //           kd_motor = kd_joint / ratio^2
                     mc.kp  = c.kp  / (ratio * ratio);
                     mc.kd  = c.kd  / (ratio * ratio);
                     mc.tau = c.tau;
@@ -254,8 +279,6 @@ private:
                 }
                 else
                 {
-                    // Safety mode: zero torque, track current position
-                    // (send zero kp/kd/tau so motors are back-drivable)
                     mc.kp  = 0.f;
                     mc.kd  = 0.f;
                     mc.tau = 0.f;
@@ -264,7 +287,8 @@ private:
                 }
 
                 md.motorType = MotorType::GO_M8010_6;
-                serial.sendRecv(&mc, &md);
+                bool replied = serial.sendRecv(&mc, &md);
+                motor_connected_[motorID].store(replied);
 
                 // Parse feedback (always, regardless of armed state)
                 QminiMotorState s;
@@ -278,7 +302,7 @@ private:
                 }
             }
 
-            // Rate limiting: sleep for remainder of period
+            // Rate limiting
             auto elapsed = clock::now() - t0;
             if (elapsed < period)
                 std::this_thread::sleep_for(period - elapsed);

@@ -1,29 +1,25 @@
 # rl_sar
 
-机器人强化学习策略的仿真验证与实物部署框架，支持轮足与人形机器人。
+Sim-to-real framework for reinforcement learning policy deployment on legged and humanoid robots.
 
----
+## Supported Robots
 
-## 支持列表
-
-| 机器人 | rname | Policy | Gazebo | Real |
-|--------|-------|--------|:------:|:----:|
+| Robot | rname | Policy | Gazebo | Real |
+|-------|-------|--------|:------:|:----:|
 | NIO ATOM01 | `ATOM01` | nio_lab | ✅ | ✅ |
 | NIO Qmini | `Qmini` | nio_lab | ✅ | ✅ |
 | Unitree G1 | `g1` | nio_lab / whole_body_tracking | ✅ | ✅ |
 | Unitree Go2W | `go2w` | robot_lab | ✅ | ✅ |
 
----
+## Quick Start
 
-## 快速开始
-
-### 1. 依赖安装
+### 1. Dependencies
 
 ```bash
 sudo apt install cmake g++ build-essential libyaml-cpp-dev libeigen3-dev \
     libboost-all-dev libspdlog-dev libfmt-dev libtbb-dev liblcm-dev
 
-# ROS2 仿真依赖
+# ROS2 simulation dependencies
 sudo apt install ros-$ROS_DISTRO-teleop-twist-keyboard \
     ros-$ROS_DISTRO-ros2-control ros-$ROS_DISTRO-ros2-controllers \
     ros-$ROS_DISTRO-control-toolbox ros-$ROS_DISTRO-robot-state-publisher \
@@ -31,180 +27,224 @@ sudo apt install ros-$ROS_DISTRO-teleop-twist-keyboard \
     ros-$ROS_DISTRO-gazebo-ros-pkgs ros-$ROS_DISTRO-xacro
 ```
 
-### 2. 编译
+### 2. Build
 
 ```bash
-# 编译全部
-./build.sh
-
-# 编译指定包
-./build.sh package1 package2
-
-# 仅硬件部署（不依赖 ROS）
-./build.sh -m
-
-# 清理构建产物
-./build.sh -c
+./build.sh              # Full build (colcon + CMake)
+./build.sh pkg1 pkg2    # Build specific packages
+./build.sh -m           # CMake only (hardware deployment, no ROS)
+./build.sh -c           # Clean build artifacts
 ```
 
-### 3. Gazebo 仿真
+### 3. Gazebo Simulation
 
 ```bash
-# 终端 1：启动仿真环境
+# Terminal 1: launch simulation
 source install/setup.bash
 ros2 launch rl_sar gazebo.launch.py rname:=<ROBOT>
 
-# 终端 2：启动控制程序
+# Terminal 2: launch controller
 source install/setup.bash
 ros2 run rl_sar rl_sim
 ```
 
-> **提示** — 首次启动 Gazebo 若无模型，执行：
-> ```bash
-> git clone https://github.com/osrf/gazebo_models.git ~/.gazebo/models
-> ```
+If Gazebo has no models on first launch: `git clone https://github.com/osrf/gazebo_models.git ~/.gazebo/models`
 
-### 4. 真实机器人
+### 4. Real Robot
 
 ```bash
-# ROS2
+# ROS2 (Unitree and other Ethernet-based robots require a network interface)
 source install/setup.bash
 ros2 run rl_sar rl_real_<ROBOT> <NETWORK_INTERFACE>
 
-# CMake（无 ROS 环境）
+# CMake (no ROS)
+# Unitree series (Ethernet communication — identify the interface first)
+ip link show                              # list interfaces
 ./cmake_build/bin/rl_real_<ROBOT> <NETWORK_INTERFACE>
+
+# Qmini (serial communication — no network interface argument)
+sudo ./cmake_build/bin/rl_real_qmini
 ```
 
-### 5. 机载 Jetson 部署（以 Qmini 为例）
+## Controls
 
-适用于将策略直接运行在机器人机载计算单元（NVIDIA Jetson）上的场景，无需 ROS 环境。
+| Gamepad | Keyboard | Function |
+|---------|----------|----------|
+| A | `0` | Stand up |
+| B | `9` | Lie down |
+| X | `N` | Navigation mode |
+| RB+Y | `R` | Reset Gazebo |
+| RB+X | `Enter` | Gazebo pause/resume |
+| LB+X | `P` | Passive mode |
+| RB+↑ / Y | `1` | Locomotion mode |
+| LY / LX | `W/S` `A/D` | Forward-back / lateral |
+| RX | `Q/E` | Yaw rotation |
+| — | `Space` | Zero velocity |
 
-**5.1 安装系统依赖**
+**Gamepad diagnostics** — if button mapping differs, use diagnostic scripts then update source code:
 
 ```bash
+python3 scripts/test_joystick.py          # Real robot (reads /dev/input/js0)
+python3 scripts/test_joy_ros.py           # Gazebo (reads /joy topic)
+```
+
+## Jetson On-board Deployment (Qmini Example)
+
+### Setup
+
+```bash
+# System dependencies
 sudo apt install cmake g++ build-essential libyaml-cpp-dev libeigen3-dev \
     libboost-all-dev libspdlog-dev libfmt-dev libtbb-dev
-```
 
-**5.2 安装 LibTorch（Jetson 专用）**
-
-项目提供脚本自动检测 JetPack 版本，安装对应 PyTorch wheel 并生成 LibTorch：
-
-```bash
+# LibTorch (auto-detects JetPack version)
 bash scripts/install_pytorch_jetson.sh
 ```
 
-> **说明** — Jetson 平台上 ONNX Runtime 会被自动禁用（CMake 检测到 `/etc/nv_tegra_release`），仅使用 LibTorch 进行推理。
+ONNX Runtime is automatically disabled on Jetson; only LibTorch is used for inference.
 
-**5.3 编译（CMake 模式，无需 ROS）**
+### Network Connection
 
-```bash
-./build.sh -m
-```
-
-编译产物位于 `cmake_build/bin/`。
-
-**5.4 确认网卡名**
+The Jetson is connected to the dev PC via wired Ethernet or hotspot, defaulting to `172.20.10.3`.
 
 ```bash
+# Find the network interface connected to the Jetson
 ip link show
+
+# Example output (find the interface connected to Jetson):
+# 2: enP8p1s0: <BROADCAST,MULTICAST,UP> ...
+# 3: wlp2s0:   <BROADCAST,MULTICAST,UP> ...
+
+# Verify connectivity
+ping 172.20.10.3
 ```
 
-**5.5 运行**
+### Build and Run
 
 ```bash
-./cmake_build/bin/rl_real_Qmini <NETWORK_INTERFACE>
-# 例如：
-./cmake_build/bin/rl_real_Qmini eth0
+./build.sh -m                          # Build
+sudo ./cmake_build/bin/rl_real_qmini   # Run (Qmini uses serial — no interface argument)
 ```
 
-**5.6 操作流程**
+Workflow: A (stand) → Y (locomotion) → joystick control → LB+X (passive) → B (lie down).
 
-启动后按以下顺序操作：
+### Code Sync
 
-| 步骤 | 手柄 | 键盘 | 说明 |
-|------|------|------|------|
-| 1 | A | `0` | 缓慢站起（2 秒插值到站立姿态） |
-| 2 | RB+↑ 或 Y | `1` | 切换到 Locomotion 运动模式 |
-| 3 | LY/LX | `W/S` `A/D` | 前后 / 左右移动 |
-| 4 | RX | `Q/E` | Yaw 旋转 |
-| 5 | LB+X | `P` | 退出运动，切回 Passive 模式 |
-| 6 | B | `9` | 缓慢趴下，返回初始姿态 |
-
-> **注意** — 策略文件路径在编译时固定为项目根目录下的 `policy/`，Jetson 上运行时需保证 `policy/Qmini/` 目录存在且内容完整：
-> ```
-> policy/Qmini/
->     base.yaml
->     nio_lab/locomotion/
->         config.yaml
->         policy.onnx
-> ```
-
----
-
-## 控制方式
-
-### 键盘 / 手柄
-
-| 手柄 | 键盘 | 功能 |
-|------|------|------|
-| A | `0` | 运动到默认站立姿态 |
-| B | `9` | 返回初始姿态 |
-| X | `N` | 切换导航模式 |
-| RB+Y | `R` | 重置 Gazebo 环境 |
-| RB+X | `Enter` | Gazebo 运行 / 暂停 |
-| LB+X | `P` | 电机 Passive 模式 |
-| RB+↑ / Y | `1` | Locomotion |
-| LY / LX | `W/S` `A/D` | 前后 / 左右移动 |
-| RX | `Q/E` | Yaw 旋转 |
-| — | `Space` | 速度清零 |
-
-### 手柄诊断工具
-
-不同品牌手柄的按键 id 可能不同，提供两个诊断脚本：
-
-**真实机器人（直接读取 `/dev/input/js*`）**
+After modifying code on the dev machine, sync to Jetson and build remotely:
 
 ```bash
-# 默认读取 /dev/input/js0
-python3 scripts/test_joystick.py
-
-# 若手柄挂载在其他节点
-python3 scripts/test_joystick.py /dev/input/js1
+ssh-copy-id qmini@172.20.10.3          # First time: passwordless SSH (confirm interface first)
+./scripts/sync_to_jetson.sh             # Sync + build
+./scripts/sync_to_jetson.sh --no-build  # Sync only
 ```
 
-示例输出：
+Build artifacts: `cmake_build/bin/{rl_real_qmini, rl_calib_qmini, rl_mirror_qmini}`
 
-```
-BUTTON  id= 4  按下  →  Gamepad::Y      [RL 运动模式]
-BUTTON  id= 0  按下  →  Gamepad::A      [站起 GetUp]
-AXIS    id= 7  DPadY    -0.999  方向键Y → R1+↑=RL模式备选
-  ↳ Gamepad::RB_DPadUp [RL 运动模式（备选）]
-```
+### Encoder Calibration
 
-若 id 与期望不符，修改 `src/rl_sar/src/rl_real_<ROBOT>.cpp` 中 `readJoystick()` 里对应的 `setBtn(<id>, ...)` 即可。
-
-**Gazebo 仿真（通过 ROS2 `/joy` 话题）**
+Required after replacing motors or mechanical parts. Calibration values are stored in `encoder_offsets` in `policy/Qmini/base.yaml`.
 
 ```bash
+sudo ./cmake_build/bin/rl_calib_qmini
+```
+
+**Mode 1 — Encoder Zero-offset Calibration**
+
+1. Place the robot in standard standing pose (matching `default_dof_pos`)
+2. Run the tool, select `1`
+3. The tool connects motors in zero-torque mode, displays joint angles in real time
+4. Press Enter to capture, enter `y` to write to `base.yaml`
+
+Principle: `new_offset[i] = old_offset[i] + (current_q[i] − default_dof_pos[i])`
+
+**Mode 2 — Joint Limit Scan**
+
+Measures mechanical limits for each joint, writes to `dof_pos_limits_min` / `dof_pos_limits_max`.
+
+1. Select `2`, all joints are in zero-torque (free to move)
+2. Enter joint index `0`–`9` to start min/max tracking
+3. Move the joint through its full range, press Enter to confirm
+4. Enter `s` to save
+
+| Command | Description |
+|---------|-------------|
+| `0`–`9` | Select joint |
+| `p` | Print current limit table |
+| `s` | Save to `base.yaml` |
+| `q` | Quit without saving |
+| `c` | Cancel current joint recording |
+
+Sync calibration back to dev machine and update the training URDF:
+
+```bash
+# Pull calibrated limits from Jetson
+scp qmini@172.20.10.3:/home/qmini/sim2real/rl_sar/policy/Qmini/base.yaml policy/Qmini/base.yaml
+
+# Write the limits from base.yaml into the URDF (for retraining)
+python3 scripts/sync_limits_to_urdf.py            # update URDF
+python3 scripts/sync_limits_to_urdf.py --dry-run  # preview changes only
+python3 scripts/sync_limits_to_urdf.py --margin 2 # shrink limits inward by 2°
+```
+
+The script validates min < max, checks left-right leg symmetry, and backs up the original URDF.
+
+### Joint Mirror Test
+
+Verifies joint direction and sign consistency between real hardware and URDF simulation. The Jetson reads joints and IMU in zero-torque mode and streams data via UDP; the PC drives a fixed-base Gazebo model to follow the real robot.
+
+```bash
+# First, confirm the PC IP on the interface connected to Jetson
+ip link show                             # find the connected interface
+ip addr show <INTERFACE>                 # check PC IP (typically 172.20.10.2)
+
+# PC Terminal 1: launch Gazebo (robot fixed in air)
 source install/setup.bash
-python3 scripts/test_joy_ros.py
+ros2 launch rl_sar mirror.launch.py rname:=Qmini
+
+# PC Terminal 2: launch mirror receiver
+source install/setup.bash
+ros2 run rl_sar rl_mirror_sim
+
+# Jetson: launch mirror sender (use PC IP found above)
+sudo ./cmake_build/bin/rl_mirror_qmini <PC_IP>
+# e.g.: sudo ./cmake_build/bin/rl_mirror_qmini 172.20.10.2
 ```
 
-示例输出：
+The PC prints a real vs. simulation joint angle comparison table for per-joint direction verification.
+
+### Log Analysis
+
+`rl_real_qmini` automatically generates CSV logs (joint angles, IMU, FSM state, etc.) under `policy/Qmini/`. Visualize with:
+
+```bash
+python3 scripts/plot_rl_log.py                           # Auto-load latest log
+python3 scripts/plot_rl_log.py policy/Qmini/rl_log_*.csv # Specify file
+```
+
+## Configuration
+
+Core configuration for each robot is in `policy/<ROBOT>/base.yaml`. Key fields:
+
+| Field | Description |
+|-------|-------------|
+| `motor_sign` | Per-motor direction sign (+1/-1), maps hardware encoder to URDF frame |
+| `encoder_offsets` | Encoder zero-offsets (written by calibration tool) |
+| `default_dof_pos` | Standard standing joint angles |
+| `dof_pos_limits_min/max` | Joint position limits (URDF frame) |
+| `fixed_kp` / `fixed_kd` | Joint PD control gains |
+| `joint_mapping` | URDF joint to hardware motor index mapping |
+
+Policy directory structure:
 
 ```
-buttons[ 0]  按下  →  期望: A   → GetUp  ✅
-buttons[ 1]  按下  →  期望: B   → GetDown  ✅
-buttons[ 3]  按下  →  期望: X   → Passive  ✅
-buttons[ 4]  按下  →  期望: Y   → RL模式  ✅
+policy/<ROBOT>/
+    base.yaml
+    <CONFIG>/
+        config.yaml
+        policy.onnx
 ```
 
-若 index 与期望不符，修改 `src/rl_sar/src/rl_sim.cpp` 中 `JoyCallback()` 里对应的 `buttons[N]` 即可。
-
----
-
-## 添加自定义机器人
+## Adding a Custom Robot
 
 ```
 src/rl_sar_zoo/<ROBOT>_description/
@@ -222,15 +262,12 @@ policy/<ROBOT>/
 
 src/rl_sar/fsm_robot/
     fsm_<ROBOT>.hpp
-    fsm_all.hpp        ← 注册新机器人
+    fsm_all.hpp        ← register new robot
 
 src/rl_sar/src/
     rl_real_<ROBOT>.cpp
 ```
 
-> 参考 `go2w` 目录结构进行适配。
+Refer to the `go2w` directory structure for guidance.
 
----
-
-> [!CAUTION]
-> 使用本代码产生的所有风险及后果由使用者自行承担，操作前请确保已采取充分安全防护措施。
+> **Caution** — All risks and consequences arising from the use of this code are borne by the user. Ensure adequate safety measures before operation.

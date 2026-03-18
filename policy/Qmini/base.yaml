@@ -1,23 +1,47 @@
-# Copyright (c) 2024-2025 Ziqi Fan
-# SPDX-License-Identifier: Apache-2.0
-
 Qmini:
   dt: 0.005
   decimation: 4
-  fixed_kp: [55.0, 105.0, 75.0, 45.0, 30.0,
-             55.0, 105.0, 75.0, 45.0, 30.0]
-  fixed_kd: [0.3, 2.5, 0.3, 0.5, 0.25,
-             0.3, 2.5, 0.3, 0.5, 0.25]
+  fixed_kp: [100.0, 150.0, 100.0, 100.0, 80.0, 100.0, 150.0, 100.0, 100.0, 80.0]
+  fixed_kd: [2.0, 2.0, 2.0, 2.0, 2.0, 2.0, 2.0, 2.0, 2.0, 2.0]
   num_of_dofs: 10
   wheel_indices: []
-  torque_limits: [60.0, 60.0, 60.0, 60.0, 20.0,
-                  60.0, 60.0, 60.0, 60.0, 20.0]
-  # Stand pose validated from official QMiniSimAndDeploy joint logs (Joint_log_2601_06_*)
-  # Order: [l_hyaw, l_hrol, l_hpit, l_knee, l_apit, r_hyaw, r_hrol, r_hpit, r_knee, r_apit]
-  default_dof_pos: [0.55, 0.25, -1.35, 1.2, -1.02,
-                    -0.55, -0.22, 1.35, -1.24, 1.02]
-  joint_names: [LL-joint1, LL-joint2, LL-joint3, LL-joint4, LL-joint5,
-                RL-joint1, RL-joint2, RL-joint3, RL-joint4, RL-joint5]
-  joint_controller_names: [LL_joint1_controller, LL_joint2_controller, LL_joint3_controller, LL_joint4_controller, LL_joint5_controller,
-                           RL_joint1_controller, RL_joint2_controller, RL_joint3_controller, RL_joint4_controller, RL_joint5_controller]
+  torque_limits: [20.0, 60.0, 20.0, 20.0, 20.0, 20.0, 60.0, 20.0, 20.0, 20.0]
+  default_dof_pos: [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+  action_scale: [0.3, 0.3, 0.3, 0.3, 0.3, 0.3, 0.3, 0.3, 0.3, 0.3]
+  joint_names: [LL-joint1, LL-joint2, LL-joint3, LL-joint4, LL-joint5, RL-joint1, RL-joint2, RL-joint3, RL-joint4, RL-joint5]
+  joint_controller_names: [LL_joint1_controller, LL_joint2_controller, LL_joint3_controller, LL_joint4_controller, LL_joint5_controller, RL_joint1_controller, RL_joint2_controller, RL_joint3_controller, RL_joint4_controller, RL_joint5_controller]
   joint_mapping: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
+  motor_sign: [-1, 1, 1, -1, 1, -1, 1, -1, 1, -1]
+  encoder_offsets:
+    - 0.5480761
+    - 0.22226769
+    - 0.31637368
+    - 0.8533871
+    - 0.52510643
+    - 0.6362589
+    - 0.17095894
+    - 0.16098809
+    - 0.2525001
+    - 0.7826183
+  dof_pos_limits_min:
+    - -0.405151
+    - -0.2779544
+    - -1.3959183
+    - -1.3412647
+    - -1.5915346
+    - -0.505475
+    - -0.6343955
+    - -1.4358218
+    - -1.2617673
+    - -1.5524065
+  dof_pos_limits_max:
+    - 0.4821608
+    - 0.6978099
+    - 0.780831
+    - 0.973313
+    - 1.0722487
+    - 0.40276855
+    - 0.20004681
+    - 0.9439139
+    - 1.2552212
+    - 1.124978

@@ -4,6 +4,7 @@
  */
 
 #include "rl_sdk.hpp"
+#include <cmath>
 
 void RL::StateController(const RobotState<float>* state, RobotCommand<float>* command)
 {
@@ -109,6 +110,14 @@ std::vector<float> RL::ComputeObservation()
         {
             obs_list.push_back(this->obs.actions);
         }
+        else if (observation == "gait_phase")
+        {
+            float period = this->params.Get<float>("gait_phase_period", 0.6f);
+            float t = this->episode_length_buf * this->params.Get<float>("dt") * this->params.Get<int>("decimation");
+            float phase = 2.0f * M_PI * t / period;
+            std::vector<float> gait_phase_vec = {std::sin(phase), std::cos(phase)};
+            obs_list.push_back(gait_phase_vec);
+        }
         // ============= Other Observations =============
         else if (observation == "whole_body_tracking/motion_command")
         {
@@ -184,15 +193,25 @@ std::vector<float> RL::ComputeObservation()
 void RL::InitObservations()
 {
     this->obs.lin_vel = {0.0f, 0.0f, 0.0f};
-    this->obs.ang_vel = {0.0f, 0.0f, 0.0f};
+    this->obs.ang_vel = this->robot_state.imu.gyroscope;
     this->obs.gravity_vec = {0.0f, 0.0f, -1.0f};
     this->obs.commands = {0.0f, 0.0f, 0.0f};
-    this->obs.base_quat = {1.0f, 0.0f, 0.0f, 0.0f};
-    this->obs.dof_pos = this->params.Get<std::vector<float>>("default_dof_pos");
-    this->obs.dof_vel.clear();
-    this->obs.dof_vel.resize(this->params.Get<int>("num_of_dofs"), 0.0f);
-    this->obs.actions.clear();
-    this->obs.actions.resize(this->params.Get<int>("num_of_dofs"), 0.0f);
+    this->obs.base_quat = this->robot_state.imu.quaternion;
+    // robot_state is SDK order, need to convert to policy order
+    // joint_mapping[policy_idx] = sdk_idx, so build inverse map
+    auto jmap = this->params.Get<std::vector<int>>("joint_mapping");
+    std::vector<int> inv_map(jmap.size());
+    for (size_t i = 0; i < jmap.size(); ++i) inv_map[jmap[i]] = i;
+    this->obs.dof_pos.resize(jmap.size());
+    this->obs.dof_vel.resize(jmap.size());
+    for (size_t sdk_idx = 0; sdk_idx < jmap.size(); ++sdk_idx) {
+        int policy_idx = inv_map[sdk_idx];
+        this->obs.dof_pos[policy_idx] = this->robot_state.motor_state.q[sdk_idx];
+        this->obs.dof_vel[policy_idx] = this->robot_state.motor_state.dq[sdk_idx];
+    }
+    // Initialize last_action to current joint position relative to default (not zero!)
+    // This prevents violent motion on first frame when robot is not at default pose
+    this->obs.actions = (this->obs.dof_pos - this->params.Get<std::vector<float>>("default_dof_pos")) / this->params.Get<std::vector<float>>("action_scale");
     this->ComputeObservation();
 }
 

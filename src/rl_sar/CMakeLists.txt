@@ -464,8 +464,59 @@ if(SYSTEM_TYPE STREQUAL "Linux")
             install(TARGETS rl_real_qmini DESTINATION lib/${PROJECT_NAME})
         endif()
     endif()
+
+    # Calibration tool — no ROS dependency, runs standalone
+    add_executable(rl_calib_qmini src/rl_calib_qmini.cpp)
+    target_link_libraries(rl_calib_qmini
+        ${YAML_CPP_LIBRARIES}
+        ${UNITREE_MOTOR_SDK}
+    )
+    set_target_properties(rl_calib_qmini PROPERTIES
+        INSTALL_RPATH "${CMAKE_INSTALL_RPATH};${QMINI_SDK_LIB_DIR}"
+    )
+    if(NOT USE_CMAKE)
+        if($ENV{ROS_DISTRO} MATCHES "foxy|humble")
+            install(TARGETS rl_calib_qmini DESTINATION lib/${PROJECT_NAME})
+        endif()
+    endif()
+
+    # Mirror tool (Jetson side) — no ROS dependency, sends UDP
+    add_executable(rl_mirror_qmini src/rl_mirror_qmini.cpp)
+    target_link_libraries(rl_mirror_qmini
+        ${YAML_CPP_LIBRARIES}
+        ${UNITREE_MOTOR_SDK}
+    )
+    set_target_properties(rl_mirror_qmini PROPERTIES
+        INSTALL_RPATH "${CMAKE_INSTALL_RPATH};${QMINI_SDK_LIB_DIR}"
+    )
+    if(NOT USE_CMAKE)
+        if($ENV{ROS_DISTRO} MATCHES "foxy|humble")
+            install(TARGETS rl_mirror_qmini DESTINATION lib/${PROJECT_NAME})
+        endif()
+    endif()
+
     endif() # UNITREE_MOTOR_SDK found
 endif() # SYSTEM_TYPE Linux
+
+# Mirror tool (PC/sim side) — ROS2 node, receives UDP and drives Gazebo
+if(NOT USE_CMAKE)
+    add_executable(rl_mirror_sim src/rl_mirror_sim.cpp)
+    target_link_libraries(rl_mirror_sim
+        ${YAML_CPP_LIBRARIES}
+        Threads::Threads
+    )
+    if($ENV{ROS_DISTRO} MATCHES "foxy|humble")
+        ament_target_dependencies(rl_mirror_sim
+            rclcpp
+            std_msgs
+            robot_msgs
+            robot_joint_controller
+            std_srvs
+            geometry_msgs
+        )
+        install(TARGETS rl_mirror_sim DESTINATION lib/${PROJECT_NAME})
+    endif()
+endif()
 
 # executable for actuator net
 if(NOT USE_CMAKE)

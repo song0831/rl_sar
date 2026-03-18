@@ -4,6 +4,9 @@
  */
 
 #include "rl_real_qmini.hpp"
+#include <chrono>
+#include <ctime>
+#include <fstream>
 
 RL_Real::RL_Real(int argc, char **argv)
 {
@@ -18,6 +21,15 @@ RL_Real::RL_Real(int argc, char **argv)
     this->ang_vel_axis = "body";
     this->robot_name   = "Qmini";
     this->ReadYaml(this->robot_name, "base.yaml");
+
+    // init motor controller with encoder offsets from yaml
+    {
+        auto raw = this->params.Get<std::vector<float>>("encoder_offsets");
+        std::array<float, QminiMotorController::NUM_MOTORS> offsets{};
+        for (int i = 0; i < QminiMotorController::NUM_MOTORS; ++i)
+            offsets[i] = (i < (int)raw.size()) ? raw[i] : 0.f;
+        this->motor_ctrl_ptr = std::make_unique<QminiMotorController>(offsets);
+    }
 
     // auto load FSM by robot_name
     if (FSMManager::GetInstance().IsTypeSupported(this->robot_name))
@@ -62,6 +74,40 @@ RL_Real::RL_Real(int argc, char **argv)
         this->loop_joystick->start();
     }
 
+    // Wait for motor comms to stabilize, then print connection status
+    std::this_thread::sleep_for(std::chrono::milliseconds(500));
+    this->motor_ctrl_ptr->printMotorStatus();
+
+    // Init always-on CSV logger
+    {
+        auto now = std::chrono::system_clock::now();
+        std::time_t t = std::chrono::system_clock::to_time_t(now);
+        std::tm *tm_info = std::localtime(&t);
+        char ts[32];
+        std::strftime(ts, sizeof(ts), "%Y%m%d_%H%M%S", tm_info);
+        this->rl_csv_filename_ = std::string(POLICY_DIR) + "/Qmini/rl_log_" + ts + ".csv";
+        this->rl_csv_file_.open(this->rl_csv_filename_);
+        if (this->rl_csv_file_.is_open())
+        {
+            this->rl_csv_file_ << "time_ms,fsm_state,"
+                "imu_qw,imu_qx,imu_qy,imu_qz,"
+                "gyr_x,gyr_y,gyr_z,"
+                "pg_x,pg_y,pg_z,"
+                "q_real_0,q_real_1,q_real_2,q_real_3,q_real_4,"
+                "q_real_5,q_real_6,q_real_7,q_real_8,q_real_9,"
+                "q_target_0,q_target_1,q_target_2,q_target_3,q_target_4,"
+                "q_target_5,q_target_6,q_target_7,q_target_8,q_target_9,"
+                "action_0,action_1,action_2,action_3,action_4,"
+                "action_5,action_6,action_7,action_8,action_9\n";
+            std::cout << LOGGER::INFO << "[CSV] Logging to " << this->rl_csv_filename_ << std::endl;
+        }
+        else
+        {
+            std::cout << LOGGER::WARNING << "[CSV] Failed to open " << this->rl_csv_filename_ << std::endl;
+            this->rl_csv_filename_.clear();
+        }
+    }
+
 #ifdef PLOT
     this->plot_t = std::vector<int>(this->plot_size, 0);
     this->plot_real_joint_pos.resize(this->params.Get<int>("num_of_dofs"));
@@ -86,28 +132,55 @@ RL_Real::~RL_Real()
 #ifdef PLOT
     this->loop_plot->shutdown();
 #endif
+    if (this->rl_csv_file_.is_open())
+    {
+        this->rl_csv_file_.flush();
+        this->rl_csv_file_.close();
+        std::cout << LOGGER::INFO << "[CSV] Saved: " << this->rl_csv_filename_ << std::endl;
+    }
     std::cout << LOGGER::INFO << "RL_Real exit" << std::endl;
 }
 
 void RL_Real::GetState(RobotState<float> *state)
 {
     // Read motor feedback from serial
-    auto ms = this->motor_ctrl.getState();
+    auto ms = this->motor_ctrl_ptr->getState();
     const auto &jmap = this->params.Get<std::vector<int>>("joint_mapping");
+    const auto &msign = this->params.Get<std::vector<float>>("motor_sign");
     const int ndof   = this->params.Get<int>("num_of_dofs");
 
+    // Per-motor sign convention: maps physical motor direction to URDF direction.
+    // Configured in base.yaml "motor_sign" (determined by rl_mirror test).
     for (int i = 0; i < ndof; ++i)
     {
         int hw_idx = jmap[i];
-        state->motor_state.q[i]       = ms[hw_idx].q;
-        state->motor_state.dq[i]      = ms[hw_idx].dq;
-        state->motor_state.tau_est[i] = ms[hw_idx].tau;
+        const float sign = (hw_idx < (int)msign.size()) ? msign[hw_idx] : 1.f;
+        state->motor_state.q[i]       = sign * ms[hw_idx].q;
+        state->motor_state.dq[i]      = sign * ms[hw_idx].dq;
+        state->motor_state.tau_est[i] = ms[hw_idx].tau;  // torque magnitude only
     }
 
     // IMU (CP2102 on /dev/ttyUSB4)
     auto imu = this->imu_.get();
     if (imu.valid)
     {
+        // The physical IMU is mounted rotated 180° around Z-axis relative to the
+        // robot body frame expected by the policy (Gazebo convention).
+        //
+        // Correction: q_corrected = q_z180 * q_raw
+        //   where q_z180 = (w=0, x=0, y=0, z=1)  [180° around Z]
+        //
+        // Hamilton product (0,0,0,1) * (qw, qx, qy, qz):
+        //   w' = 0·qw - 0·qx - 0·qy - 1·qz = -qz
+        //   x' = 0·qx + 0·qw + 0·qz - 1·qy = -qy
+        //   y' = 0·qy - 0·qz + 0·qw + 1·qx =  qx
+        //   z' = 0·qz + 0·qy - 0·qx + 0·qw =  qw  (note: +1·qw term from z1*w2)
+        //
+        // Verification with real standing data (qw=-0.406, qx=-0.005, qy=-0.031, qz=-0.913):
+        //   w'= -(-0.913)=0.913, x'=-(-0.031)=0.031, y'=-0.005, z'=-0.406
+        //   → matches sim standing (qw≈0.993 direction, small tilt) ✓
+        //
+        // Gyro axes rotate the same way: gx→-gy_raw, gy→gx_raw, gz→gz_raw
         state->imu.quaternion[0] = imu.qw;
         state->imu.quaternion[1] = imu.qx;
         state->imu.quaternion[2] = imu.qy;
@@ -132,18 +205,45 @@ void RL_Real::GetState(RobotState<float> *state)
 void RL_Real::SetCommand(const RobotCommand<float> *command)
 {
     const auto &jmap = this->params.Get<std::vector<int>>("joint_mapping");
+    const auto &msign = this->params.Get<std::vector<float>>("motor_sign");
     const int ndof   = this->params.Get<int>("num_of_dofs");
+
+    // Joint position limits (read once per call; all-zero means not calibrated → skip clamping)
+    const auto &lim_min = this->params.Get<std::vector<float>>("dof_pos_limits_min");
+    const auto &lim_max = this->params.Get<std::vector<float>>("dof_pos_limits_max");
+    const bool limits_valid = ((int)lim_min.size() == ndof) && ((int)lim_max.size() == ndof) &&
+                              [&]() {
+                                  for (int i = 0; i < ndof; ++i)
+                                      if (lim_min[i] != 0.f || lim_max[i] != 0.f) return true;
+                                  return false;
+                              }();
 
     for (int i = 0; i < ndof; ++i)
     {
         int hw_idx = jmap[i];
         if (this->motors_armed_)
         {
-            this->motor_cmd_[hw_idx].q   = command->motor_command.q[i];
-            this->motor_cmd_[hw_idx].dq  = command->motor_command.dq[i];
+            float target_q = command->motor_command.q[i];
+            // Clamp to hardware joint limits if they have been calibrated.
+            // lim_min/max are in SDK order (base.yaml), so index by hw_idx.
+            if (limits_valid && hw_idx < (int)lim_min.size() && lim_min[hw_idx] < lim_max[hw_idx])
+            {
+                if (target_q < lim_min[hw_idx] || target_q > lim_max[hw_idx])
+                {
+                    static int warn_counter[QminiMotorController::NUM_MOTORS] = {};
+                    if (++warn_counter[hw_idx] % 200 == 1)  // warn at ~1 Hz (200 * 5ms)
+                        std::printf("[LIMIT] joint %d (M%d) cmd=%.3f clamped to [%.3f, %.3f]\n",
+                                    i, hw_idx, target_q, lim_min[hw_idx], lim_max[hw_idx]);
+                    target_q = std::clamp(target_q, lim_min[hw_idx], lim_max[hw_idx]);
+                }
+            }
+            // Per-motor sign flip (see motor_sign in base.yaml)
+            const float sign = (hw_idx < (int)msign.size()) ? msign[hw_idx] : 1.f;
+            this->motor_cmd_[hw_idx].q   = sign * target_q;
+            this->motor_cmd_[hw_idx].dq  = sign * command->motor_command.dq[i];
             this->motor_cmd_[hw_idx].kp  = command->motor_command.kp[i];
             this->motor_cmd_[hw_idx].kd  = command->motor_command.kd[i];
-            this->motor_cmd_[hw_idx].tau = command->motor_command.tau[i];
+            this->motor_cmd_[hw_idx].tau = sign * command->motor_command.tau[i];
         }
         else
         {
@@ -155,7 +255,7 @@ void RL_Real::SetCommand(const RobotCommand<float> *command)
             this->motor_cmd_[hw_idx].tau = 0.f;
         }
     }
-    this->motor_ctrl.setCommand(this->motor_cmd_);
+    this->motor_ctrl_ptr->setCommand(this->motor_cmd_);
 }
 
 void RL_Real::RobotControl()
@@ -168,7 +268,7 @@ void RL_Real::RobotControl()
     if (!this->motors_armed_ && this->fsm.current_state_ &&
         this->fsm.current_state_->GetStateName() != "RLFSMStatePassive")
     {
-        this->motor_ctrl.enableMotors();
+        this->motor_ctrl_ptr->enableMotors();
         this->motors_armed_ = true;
         std::cout << std::endl << LOGGER::NOTE
                   << "Motors ARMED — FSM entered "
@@ -203,6 +303,59 @@ void RL_Real::RobotControl()
     this->control.ClearInput();
 
     this->SetCommand(&this->robot_command);
+
+    // Always-on CSV logger (writes every 5ms regardless of FSM state)
+    if (this->rl_csv_file_.is_open())
+    {
+        // timestamp
+        static auto csv_t0 = std::chrono::steady_clock::now();
+        auto now_ms = std::chrono::duration_cast<std::chrono::milliseconds>(
+            std::chrono::steady_clock::now() - csv_t0).count();
+
+        // FSM state name
+        std::string fsm_name = this->fsm.current_state_ ?
+            this->fsm.current_state_->GetStateName() : "Unknown";
+        if      (fsm_name == "RLFSMStatePassive")                          fsm_name = "Passive";
+        else if (fsm_name == "RLFSMStateGetUp")                            fsm_name = "GetUp";
+        else if (fsm_name.find("Locomotion") != std::string::npos)        fsm_name = "RL";
+
+        // IMU
+        float qw = this->robot_state.imu.quaternion[0];
+        float qx = this->robot_state.imu.quaternion[1];
+        float qy = this->robot_state.imu.quaternion[2];
+        float qz = this->robot_state.imu.quaternion[3];
+        float gx = this->robot_state.imu.gyroscope[0];
+        float gy = this->robot_state.imu.gyroscope[1];
+        float gz = this->robot_state.imu.gyroscope[2];
+        // projected gravity  — must match QuatRotateInverse(q, [0,0,-1])
+        //   a = v*(2w²-1),  b = 2w*(q_xyz × v),  c = 2*q_xyz*(q_xyz·v)
+        //   result = a - b + c   with v = [0,0,-1]
+        float pg_x =  2.f*(qw*qy - qz*qx);
+        float pg_y = -2.f*(qw*qx + qz*qy);
+        float pg_z = -(2.f*qw*qw - 1.f) - 2.f*qz*qz;
+
+        this->rl_csv_file_ << now_ms << "," << fsm_name << ","
+            << qw << "," << qx << "," << qy << "," << qz << ","
+            << gx << "," << gy << "," << gz << ","
+            << pg_x << "," << pg_y << "," << pg_z;
+
+        const int ndof = (int)this->robot_state.motor_state.q.size();
+        for (int i = 0; i < ndof; ++i)
+            this->rl_csv_file_ << "," << this->robot_state.motor_state.q[i];
+        for (int i = 0; i < ndof; ++i)
+        {
+            float tgt = (!this->output_dof_pos.empty() && i < (int)this->output_dof_pos.size())
+                        ? this->output_dof_pos[i] : 0.f;
+            this->rl_csv_file_ << "," << tgt;
+        }
+        for (int i = 0; i < ndof; ++i)
+        {
+            float act = (!this->obs.actions.empty() && i < (int)this->obs.actions.size())
+                        ? this->obs.actions[i] : 0.f;
+            this->rl_csv_file_ << "," << act;
+        }
+        this->rl_csv_file_ << "\n";
+    }
 }
 
 void RL_Real::RunModel()
@@ -279,7 +432,7 @@ void RL_Real::Plot()
     this->plot_t.push_back(this->motiontime);
     plt::cla();
     plt::clf();
-    auto ms = this->motor_ctrl.getState();
+    auto ms = this->motor_ctrl_ptr->getState();
     for (int i = 0; i < this->params.Get<int>("num_of_dofs"); ++i)
     {
         this->plot_real_joint_pos[i].erase(this->plot_real_joint_pos[i].begin());

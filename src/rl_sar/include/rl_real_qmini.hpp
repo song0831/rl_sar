@@ -24,6 +24,9 @@
 #include <shared_mutex>
 #include <fcntl.h>
 #include <linux/joystick.h>
+#include <chrono>
+#include <ctime>
+#include <fstream>
 
 #if defined(USE_ROS2) && defined(USE_ROS)
 #include <rclcpp/rclcpp.hpp>
@@ -202,8 +205,8 @@ private:
     std::vector<std::vector<float>> plot_real_joint_pos, plot_target_joint_pos;
     void Plot();
 
-    // Serial-port motor interface
-    QminiMotorController motor_ctrl;
+    // Serial-port motor interface (initialized after yaml is loaded)
+    std::unique_ptr<QminiMotorController> motor_ctrl_ptr;
     std::array<QminiMotorCmd, QminiMotorController::NUM_MOTORS> motor_cmd_{};
 
     // Safety: motors start in zero-torque mode.
@@ -224,6 +227,10 @@ private:
     // others
     std::vector<float> mapped_joint_positions;
     std::vector<float> mapped_joint_velocities;
+
+    // Always-on RL data logger
+    std::string rl_csv_filename_;
+    std::ofstream rl_csv_file_;
 
 #if defined(USE_ROS2) && defined(USE_ROS)
     geometry_msgs::msg::Twist cmd_vel;
