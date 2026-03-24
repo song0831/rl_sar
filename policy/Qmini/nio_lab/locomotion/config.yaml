@@ -22,7 +22,7 @@ Qmini/nio_lab/locomotion:
   fixed_kd: [5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0]
   num_of_dofs: 10
   # action_scale in policy (asset) order
-  action_scale: [0.35, 0.35, 0.35, 0.35, 0.35, 0.35, 0.35, 0.35, 0.35, 0.35]
+  action_scale: [0.25, 0.25, 0.25, 0.25, 0.25, 0.25, 0.25, 0.25, 0.25, 0.25]
   wheel_indices: []
   lin_vel_scale: 1.0
   ang_vel_scale: 0.2
