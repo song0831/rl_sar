@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2024-2025 Ziqi Fan
+ * Copyright (c) 2024-2025
  * SPDX-License-Identifier: Apache-2.0
  *
  * rl_calib_qmini: Encoder zero-offset calibration & joint-limit scan tool for Qmini robot.

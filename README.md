@@ -57,10 +57,16 @@ If Gazebo has no models on first launch: `git clone https://github.com/osrf/gaze
 source install/setup.bash
 ros2 run rl_sar rl_real_<ROBOT> <NETWORK_INTERFACE>
 
+# Go2W: add 'wheel' argument to enable wheeled mode
+ros2 run rl_sar rl_real_go2 <NETWORK_INTERFACE> wheel
+
 # CMake (no ROS)
 # Unitree series (Ethernet communication — identify the interface first)
 ip link show                              # list interfaces
 ./cmake_build/bin/rl_real_<ROBOT> <NETWORK_INTERFACE>
+
+# Go2W: add 'wheel' argument
+./cmake_build/bin/rl_real_go2 <NETWORK_INTERFACE> wheel
 
 # Qmini (serial communication — no network interface argument)
 sudo ./cmake_build/bin/rl_real_qmini
@@ -174,19 +180,12 @@ Measures mechanical limits for each joint, writes to `dof_pos_limits_min` / `dof
 | `q` | Quit without saving |
 | `c` | Cancel current joint recording |
 
-Sync calibration back to dev machine and update the training URDF:
+Sync calibration back to dev machine:
 
 ```bash
 # Pull calibrated limits from Jetson
 scp qmini@172.20.10.3:/home/qmini/sim2real/rl_sar/policy/Qmini/base.yaml policy/Qmini/base.yaml
-
-# Write the limits from base.yaml into the URDF (for retraining)
-python3 scripts/sync_limits_to_urdf.py            # update URDF
-python3 scripts/sync_limits_to_urdf.py --dry-run  # preview changes only
-python3 scripts/sync_limits_to_urdf.py --margin 2 # shrink limits inward by 2°
 ```
-
-The script validates min < max, checks left-right leg symmetry, and backs up the original URDF.
 
 ### Joint Mirror Test
 
@@ -212,15 +211,6 @@ sudo ./cmake_build/bin/rl_mirror_qmini <PC_IP>
 
 The PC prints a real vs. simulation joint angle comparison table for per-joint direction verification.
 
-### Log Analysis
-
-`rl_real_qmini` automatically generates CSV logs (joint angles, IMU, FSM state, etc.) under `policy/Qmini/`. Visualize with:
-
-```bash
-python3 scripts/plot_rl_log.py                           # Auto-load latest log
-python3 scripts/plot_rl_log.py policy/Qmini/rl_log_*.csv # Specify file
-```
-
 ## Configuration
 
 Core configuration for each robot is in `policy/<ROBOT>/base.yaml`. Key fields:
@@ -241,7 +231,7 @@ policy/<ROBOT>/
     base.yaml
     <CONFIG>/
         config.yaml
-        policy.onnx
+        policy.onnx  # or policy.pt
 ```
 
 ## Adding a Custom Robot

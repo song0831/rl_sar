@@ -57,10 +57,16 @@ ros2 run rl_sar rl_sim
 source install/setup.bash
 ros2 run rl_sar rl_real_<ROBOT> <NETWORK_INTERFACE>
 
+# Go2W：添加 'wheel' 参数以启用轮式模式
+ros2 run rl_sar rl_real_go2 <NETWORK_INTERFACE> wheel
+
 # CMake 模式（无 ROS）
 # Unitree 系列（以太网通信，需要网卡名）
 ip link show                              # 确认网卡名
 ./cmake_build/bin/rl_real_<ROBOT> <NETWORK_INTERFACE>
+
+# Go2W：添加 'wheel' 参数
+./cmake_build/bin/rl_real_go2 <NETWORK_INTERFACE> wheel
 
 # Qmini（串口通信，不需要网卡参数）
 ./cmake_build/bin/rl_real_qmini
@@ -174,19 +180,12 @@ sudo ./cmake_build/bin/rl_calib_qmini
 | `q` | 不保存退出 |
 | `c` | 取消当前关节录制 |
 
-标定完成后同步回本机，并更新训练用 URDF：
+标定完成后同步回本机：
 
 ```bash
 # 将标定结果同步回开发机
 scp qmini@172.20.10.3:/home/qmini/sim2real/rl_sar/policy/Qmini/base.yaml policy/Qmini/base.yaml
-
-# 将 base.yaml 中的限位写入 URDF（用于重新训练）
-python3 scripts/sync_limits_to_urdf.py            # 更新 URDF
-python3 scripts/sync_limits_to_urdf.py --dry-run  # 只查看差异，不修改
-python3 scripts/sync_limits_to_urdf.py --margin 2 # 限位向内缩 2°（安全裕度）
 ```
-
-脚本会自动校验 min < max、检查左右腿对称性，并备份原 URDF。
 
 ### 关节镜像测试
 
@@ -212,15 +211,6 @@ sudo ./cmake_build/bin/rl_mirror_qmini <PC_IP>
 
 PC 端打印实物与仿真的关节角度对比表，用于逐关节确认方向一致性。
 
-### 运行日志分析
-
-`rl_real_qmini` 运行时自动在 `policy/Qmini/` 下生成 CSV 日志，可用脚本可视化：
-
-```bash
-python3 scripts/plot_rl_log.py                           # 自动加载最新日志
-python3 scripts/plot_rl_log.py policy/Qmini/rl_log_*.csv # 指定文件
-```
-
 ## 配置说明
 
 每个机器人的核心配置位于 `policy/<ROBOT>/base.yaml`，关键字段：
@@ -241,7 +231,7 @@ policy/<ROBOT>/
     base.yaml
     <CONFIG>/
         config.yaml
-        policy.onnx
+        policy.onnx  # 或 policy.pt
 ```
 
 ## 添加自定义机器人

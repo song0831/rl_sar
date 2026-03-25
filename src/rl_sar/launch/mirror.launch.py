@@ -1,4 +1,4 @@
-# Copyright (c) 2024-2025 Ziqi Fan
+# Copyright (c) 2024-2025
 # SPDX-License-Identifier: Apache-2.0
 #
 # mirror.launch.py — Launch Gazebo with the robot FIXED in the air for joint mirror testing.

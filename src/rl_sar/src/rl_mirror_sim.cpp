@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2024-2025 Ziqi Fan
+ * Copyright (c) 2024-2025
  * SPDX-License-Identifier: Apache-2.0
  *
  * rl_mirror_sim: Gazebo-side joint mirror receiver for real↔sim alignment verification.
