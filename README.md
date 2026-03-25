@@ -2,14 +2,18 @@
 
 Sim-to-real framework for reinforcement learning policy deployment on legged and humanoid robots.
 
+---
+
 ## Supported Robots
 
 | Robot | rname | Policy | Gazebo | Real |
-|-------|-------|--------|:------:|:----:|
-| NIO ATOM01 | `ATOM01` | nio_lab | ✅ | ✅ |
-| NIO Qmini | `Qmini` | nio_lab | ✅ | ✅ |
-| Unitree G1 | `g1` | nio_lab / whole_body_tracking | ✅ | ✅ |
-| Unitree Go2W | `go2w` | robot_lab | ✅ | ✅ |
+|-------|-------|--------|--------|------|
+| NIO ATOM01 | `ATOM01` | nio_lab | yes | yes |
+| NIO Qmini | `Qmini` | nio_lab | yes | yes |
+| Unitree G1 | `g1` | nio_lab / whole_body_tracking | yes | yes |
+| Unitree Go2W | `go2w` | robot_lab | yes | yes |
+
+---
 
 ## Quick Start
 
@@ -18,8 +22,11 @@ Sim-to-real framework for reinforcement learning policy deployment on legged and
 ```bash
 sudo apt install cmake g++ build-essential libyaml-cpp-dev libeigen3-dev \
     libboost-all-dev libspdlog-dev libfmt-dev libtbb-dev liblcm-dev
+```
 
-# ROS2 simulation dependencies
+ROS2 simulation dependencies:
+
+```bash
 sudo apt install ros-$ROS_DISTRO-teleop-twist-keyboard \
     ros-$ROS_DISTRO-ros2-control ros-$ROS_DISTRO-ros2-controllers \
     ros-$ROS_DISTRO-control-toolbox ros-$ROS_DISTRO-robot-state-publisher \
@@ -38,39 +45,52 @@ sudo apt install ros-$ROS_DISTRO-teleop-twist-keyboard \
 
 ### 3. Gazebo Simulation
 
+Terminal 1 — launch simulation:
+
 ```bash
-# Terminal 1: launch simulation
 source install/setup.bash
 ros2 launch rl_sar gazebo.launch.py rname:=<ROBOT>
+```
 
-# Terminal 2: launch controller
+Terminal 2 — launch controller:
+
+```bash
 source install/setup.bash
 ros2 run rl_sar rl_sim
 ```
 
-If Gazebo has no models on first launch: `git clone https://github.com/osrf/gazebo_models.git ~/.gazebo/models`
+If Gazebo has no models on first launch:
+
+```bash
+git clone https://github.com/osrf/gazebo_models.git ~/.gazebo/models
+```
 
 ### 4. Real Robot
 
+ROS2 mode (Ethernet-based robots require a network interface):
+
 ```bash
-# ROS2 (Unitree and other Ethernet-based robots require a network interface)
 source install/setup.bash
 ros2 run rl_sar rl_real_<ROBOT> <NETWORK_INTERFACE>
 
 # Go2W: add 'wheel' argument to enable wheeled mode
 ros2 run rl_sar rl_real_go2 <NETWORK_INTERFACE> wheel
+```
 
-# CMake (no ROS)
-# Unitree series (Ethernet communication — identify the interface first)
-ip link show                              # list interfaces
+CMake mode (no ROS):
+
+```bash
+ip link show                                          # list interfaces
 ./cmake_build/bin/rl_real_<ROBOT> <NETWORK_INTERFACE>
 
-# Go2W: add 'wheel' argument
+# Go2W
 ./cmake_build/bin/rl_real_go2 <NETWORK_INTERFACE> wheel
 
-# Qmini (serial communication — no network interface argument)
+# Qmini (serial communication, no interface argument)
 sudo ./cmake_build/bin/rl_real_qmini
 ```
+
+---
 
 ## Controls
 
@@ -87,19 +107,20 @@ sudo ./cmake_build/bin/rl_real_qmini
 | RX | `Q/E` | Yaw rotation |
 | — | `Space` | Zero velocity |
 
-**Gamepad diagnostics** — if button mapping differs, use diagnostic scripts then update source code:
+If button mapping differs, use diagnostic scripts to confirm IDs then update source code:
 
 ```bash
-python3 scripts/test_joystick.py          # Real robot (reads /dev/input/js0)
-python3 scripts/test_joy_ros.py           # Gazebo (reads /joy topic)
+python3 scripts/test_joystick.py    # Real robot (reads /dev/input/js0)
+python3 scripts/test_joy_ros.py     # Gazebo (reads /joy topic)
 ```
+
+---
 
 ## Jetson On-board Deployment (Qmini Example)
 
 ### Setup
 
 ```bash
-# System dependencies
 sudo apt install cmake g++ build-essential libyaml-cpp-dev libeigen3-dev \
     libboost-all-dev libspdlog-dev libfmt-dev libtbb-dev
 
@@ -111,35 +132,26 @@ ONNX Runtime is automatically disabled on Jetson; only LibTorch is used for infe
 
 ### Network Connection
 
-The Jetson is connected to the dev PC via wired Ethernet or hotspot, defaulting to `172.20.10.3`.
+The Jetson connects to the dev PC via wired Ethernet or hotspot, defaulting to `172.20.10.3`.
 
 ```bash
-# Find the network interface connected to the Jetson
-ip link show
-
-# Example output (find the interface connected to Jetson):
-# 2: enP8p1s0: <BROADCAST,MULTICAST,UP> ...
-# 3: wlp2s0:   <BROADCAST,MULTICAST,UP> ...
-
-# Verify connectivity
-ping 172.20.10.3
+ip link show        # find the interface connected to Jetson
+ping 172.20.10.3    # verify connectivity
 ```
 
 ### Build and Run
 
 ```bash
 ./build.sh -m                          # Build
-sudo ./cmake_build/bin/rl_real_qmini   # Run (Qmini uses serial — no interface argument)
+sudo ./cmake_build/bin/rl_real_qmini   # Run
 ```
 
 Workflow: A (stand) → Y (locomotion) → joystick control → LB+X (passive) → B (lie down).
 
 ### Code Sync
 
-After modifying code on the dev machine, sync to Jetson and build remotely:
-
 ```bash
-ssh-copy-id qmini@172.20.10.3          # First time: passwordless SSH (confirm interface first)
+ssh-copy-id qmini@172.20.10.3          # First time: passwordless SSH
 ./scripts/sync_to_jetson.sh             # Sync + build
 ./scripts/sync_to_jetson.sh --no-build  # Sync only
 ```
@@ -148,7 +160,7 @@ Build artifacts: `cmake_build/bin/{rl_real_qmini, rl_calib_qmini, rl_mirror_qmin
 
 ### Encoder Calibration
 
-Required after replacing motors or mechanical parts. Calibration values are stored in `encoder_offsets` in `policy/Qmini/base.yaml`.
+Required after replacing motors or mechanical parts. Values are stored in `encoder_offsets` in `policy/Qmini/base.yaml`.
 
 ```bash
 sudo ./cmake_build/bin/rl_calib_qmini
@@ -161,20 +173,20 @@ sudo ./cmake_build/bin/rl_calib_qmini
 3. The tool connects motors in zero-torque mode, displays joint angles in real time
 4. Press Enter to capture, enter `y` to write to `base.yaml`
 
-Principle: `new_offset[i] = old_offset[i] + (current_q[i] − default_dof_pos[i])`
+Principle: `new_offset[i] = old_offset[i] + (current_q[i] - default_dof_pos[i])`
 
 **Mode 2 — Joint Limit Scan**
 
 Measures mechanical limits for each joint, writes to `dof_pos_limits_min` / `dof_pos_limits_max`.
 
 1. Select `2`, all joints are in zero-torque (free to move)
-2. Enter joint index `0`–`9` to start min/max tracking
+2. Enter joint index `0`-`9` to start min/max tracking
 3. Move the joint through its full range, press Enter to confirm
 4. Enter `s` to save
 
 | Command | Description |
 |---------|-------------|
-| `0`–`9` | Select joint |
+| `0`-`9` | Select joint |
 | `p` | Print current limit table |
 | `s` | Save to `base.yaml` |
 | `q` | Quit without saving |
@@ -183,7 +195,6 @@ Measures mechanical limits for each joint, writes to `dof_pos_limits_min` / `dof
 Sync calibration back to dev machine:
 
 ```bash
-# Pull calibrated limits from Jetson
 scp qmini@172.20.10.3:/home/qmini/sim2real/rl_sar/policy/Qmini/base.yaml policy/Qmini/base.yaml
 ```
 
@@ -191,25 +202,36 @@ scp qmini@172.20.10.3:/home/qmini/sim2real/rl_sar/policy/Qmini/base.yaml policy/
 
 Verifies joint direction and sign consistency between real hardware and URDF simulation. The Jetson reads joints and IMU in zero-torque mode and streams data via UDP; the PC drives a fixed-base Gazebo model to follow the real robot.
 
-```bash
-# First, confirm the PC IP on the interface connected to Jetson
-ip link show                             # find the connected interface
-ip addr show <INTERFACE>                 # check PC IP (typically 172.20.10.2)
+Confirm PC IP on the interface connected to Jetson:
 
-# PC Terminal 1: launch Gazebo (robot fixed in air)
+```bash
+ip link show                   # find the connected interface
+ip addr show <INTERFACE>       # check PC IP (typically 172.20.10.2)
+```
+
+PC Terminal 1 — launch Gazebo:
+
+```bash
 source install/setup.bash
 ros2 launch rl_sar mirror.launch.py rname:=Qmini
+```
 
-# PC Terminal 2: launch mirror receiver
+PC Terminal 2 — launch mirror receiver:
+
+```bash
 source install/setup.bash
 ros2 run rl_sar rl_mirror_sim
+```
 
-# Jetson: launch mirror sender (use PC IP found above)
+Jetson — launch mirror sender:
+
+```bash
 sudo ./cmake_build/bin/rl_mirror_qmini <PC_IP>
-# e.g.: sudo ./cmake_build/bin/rl_mirror_qmini 172.20.10.2
 ```
 
 The PC prints a real vs. simulation joint angle comparison table for per-joint direction verification.
+
+---
 
 ## Configuration
 
@@ -234,30 +256,6 @@ policy/<ROBOT>/
         policy.onnx  # or policy.pt
 ```
 
-## Adding a Custom Robot
+---
 
-```
-src/rl_sar_zoo/<ROBOT>_description/
-    CMakeLists.txt
-    package.ros2.xml
-    xacro/robot.xacro
-    xacro/gazebo.xacro
-    config/robot_control.yaml
-    config/robot_control_ros2.yaml
-
-policy/<ROBOT>/
-    base.yaml
-    <CONFIG>/config.yaml
-    <CONFIG>/<POLICY>.onnx
-
-src/rl_sar/fsm_robot/
-    fsm_<ROBOT>.hpp
-    fsm_all.hpp        ← register new robot
-
-src/rl_sar/src/
-    rl_real_<ROBOT>.cpp
-```
-
-Refer to the `go2w` directory structure for guidance.
-
-> **Caution** — All risks and consequences arising from the use of this code are borne by the user. Ensure adequate safety measures before operation.
+> All risks and consequences arising from the use of this code are borne by the user. Ensure adequate safety measures before operation.
