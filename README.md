@@ -1,6 +1,6 @@
 # rl_sar
 
-Sim-to-real framework for reinforcement learning policy deployment on legged and humanoid robots.
+Sim-to-real framework for reinforcement learning policy deployment on legged and humanoid robots. | [中文版本](README_CN.md)
 
 ---
 
