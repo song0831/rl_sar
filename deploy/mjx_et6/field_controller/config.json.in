@@ -1,0 +1,12 @@
+{
+  "policy_root": "@POLICY_ROOT@",
+  "policy_config": "@INSTALL_ROOT@/field_controller/policy_field.yaml",
+  "gamepad_module": "@INSTALL_ROOT@/gamepad_pwm/gamepad_pwm.py",
+  "manual_gamepad_config": "@INSTALL_ROOT@/field_controller/manual_field.json",
+  "session_root": "@INSTALL_ROOT@/field_sessions",
+  "manual_button": "BTN_WEST",
+  "policy_button": "BTN_NORTH",
+  "deadman_button": "BTN_TR",
+  "mode_hold_s": 1.0,
+  "policy_runtime_s": 16.0
+}

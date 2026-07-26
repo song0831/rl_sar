@@ -1,0 +1,18 @@
+[Unit]
+Description=ET6 gamepad-only manual and ONNX policy field controller
+After=bluetooth.target imu-dashboard.service wheel-speed-monitor.service
+Wants=imu-dashboard.service wheel-speed-monitor.service
+Conflicts=gamepad-pwm.service
+
+[Service]
+Type=simple
+ExecStartPre=-/usr/bin/systemctl --user stop gamepad-pwm.service
+ExecStart=/usr/bin/python3 @INSTALL_ROOT@/field_controller/et6_field_controller.py --field-config @INSTALL_ROOT@/field_controller/config.json
+Restart=always
+RestartSec=2
+KillMode=control-group
+TimeoutStopSec=8
+Environment=PYTHONUNBUFFERED=1
+
+[Install]
+WantedBy=default.target

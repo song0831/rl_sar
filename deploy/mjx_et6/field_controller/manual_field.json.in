@@ -1,0 +1,111 @@
+{
+  "control": {
+    "armed_on_start": true,
+    "brake_limit": 0.0,
+    "frequency_hz": 50.0,
+    "max_pulse_ms": 2.0,
+    "max_steering_slew_per_s": 6.0,
+    "max_throttle_slew_per_s": 4.0,
+    "min_pulse_ms": 1.0,
+    "neutral_pulse_ms": 1.5,
+    "require_arm": false,
+    "require_deadman": true,
+    "steering_deadzone": 0.05,
+    "steering_expo": 0.2,
+    "steering_limit": 1.0,
+    "steering_limit_levels": [1.0],
+    "steering_neutral_max_ms": 1.5,
+    "steering_neutral_min_ms": 1.5,
+    "steering_neutral_step_ms": 0.025,
+    "throttle_deadzone": 0.04,
+    "throttle_expo": 0.1,
+    "throttle_limit": 1.0
+  },
+  "input": {
+    "device": "auto",
+    "grab": true,
+    "name_contains": [
+      "G5",
+      "MACHENIKE",
+      "Xbox",
+      "Wireless Controller",
+      "Gamepad",
+      "Controller",
+      "ACRUX",
+      "2.4G"
+    ],
+    "preferred_usb_ids": ["1a34:f517", "045e:028e"],
+    "reconnect_s": 1.0
+  },
+  "mapping": {
+    "arm_button": "BTN_SOUTH",
+    "brake_axis": [],
+    "brake_button": [],
+    "brake_invert": false,
+    "cruise_button": null,
+    "deadman_button": "BTN_TR",
+    "disarm_button": "BTN_EAST",
+    "exit_button": "BTN_START",
+    "neutral_button": null,
+    "steering_axis": ["ABS_X"],
+    "steering_invert": true,
+    "steering_limit_button": null,
+    "steering_neutral_button": null,
+    "throttle_axis": ["ABS_GAS", "ABS_RZ"],
+    "throttle_button": [],
+    "throttle_invert": false
+  },
+  "pwm": {
+    "backend": "sysfs",
+    "disable_on_exit": false,
+    "dry_run": false,
+    "steering": "32e0000.pwm:0",
+    "steering_output_inverted": true,
+    "throttle": "32c0000.pwm:0",
+    "throttle_output_inverted": true
+  },
+  "gyro_assist": {
+    "enabled": true,
+    "required_for_motion": true,
+    "imu_url": "http://127.0.0.1:8080/api/data",
+    "wheel_url": "http://127.0.0.1:8081/api/data",
+    "request_timeout_s": 0.08,
+    "max_data_age_s": 0.5,
+    "poll_rate_hz": 60.0,
+    "startup_calibration_samples": 30,
+    "startup_max_abs_gyro_radps": 0.15,
+    "startup_max_wheel_rpm": 20.0,
+    "imu_mount_roll_rad": -0.0649485,
+    "imu_mount_pitch_rad": 0.06761195,
+    "imu_gyro_z_sign": -1.0,
+    "wheel_rpm_key": "fast_rpm",
+    "front_wheel_names": ["front_left", "front_right"],
+    "wheel_radius_m": 0.0515,
+    "wheelbase_m": 0.375,
+    "steering_curve_commands": [
+      -1.0, -0.8, -0.6, -0.4, -0.32, -0.24, -0.2, -0.16, -0.12, -0.08, -0.04,
+      0.0, 0.08, 0.12, 0.16, 0.2, 0.24, 0.32, 0.4, 0.6, 0.8, 1.0
+    ],
+    "steering_curve_angles_rad": [
+      -0.45427328424609875, -0.4121516928460342, -0.33916967325790925,
+      -0.1811488543083668, -0.17803224840374174, -0.09745742762664067,
+      -0.09745742762664067, -0.09745742762664067, -0.09347993306123327,
+      -0.020791247253647997, -0.020791247253647997, 0.0,
+      0.024456786678675218, 0.024456786678675218, 0.02562129014926309,
+      0.02562129014926309, 0.10147849032686489, 0.10511849598548251,
+      0.18259871053930832, 0.2607824556170308, 0.3415192577374473,
+      0.4318632591326032
+    ],
+    "cutoff_hz": 8.0,
+    "kp": 0.08,
+    "max_correction": 0.12,
+    "error_deadband_radps": 0.10,
+    "activation_speed_mps": 0.8,
+    "activation_blend_mps": 0.4,
+    "correction_slew_per_s": 4.0,
+    "max_target_yaw_rate_radps": 6.0
+  },
+  "status": {
+    "print_rate_hz": 2.0
+  }
+}

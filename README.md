@@ -1,6 +1,6 @@
 # rl_sar
 
-Sim-to-real framework for reinforcement learning policy deployment on legged and humanoid robots. | [中文版本](README_CN.md)
+Sim-to-real framework for reinforcement learning policy deployment on robots and RC vehicles. | [中文版本](README_CN.md)
 
 ---
 
@@ -10,8 +10,18 @@ Sim-to-real framework for reinforcement learning policy deployment on legged and
 |-------|-------|--------|--------|------|
 | NIO ATOM01 | `ATOM01` | nio_lab | yes | yes |
 | NIO Qmini | `Qmini` | nio_lab | yes | yes |
+| MJX Hyper Go 7303 / ET6 | `MJX_ET6` | nio_lab | no | yes |
 | Unitree G1 | `g1` | nio_lab / whole_body_tracking | yes | yes |
 | Unitree Go2W | `go2w` | robot_lab | yes | yes |
+
+---
+
+## MJX ET6 RC Car
+
+The repository includes a Jetson ONNX deployment target, two-channel PWM
+runner, H30 IMU and wheel-RPM observation path, and gamepad-only manual/policy
+selector for the MJX Hyper Go 7303. See
+[MJX ET6 Jetson Deployment](docs/MJX_ET6_DEPLOYMENT.md).
 
 ---
 

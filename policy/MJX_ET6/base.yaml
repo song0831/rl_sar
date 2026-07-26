@@ -1,0 +1,5 @@
+MJX_ET6:
+  dt: 0.02
+  decimation: 1
+  num_of_dofs: 2
+  notes: "Two-channel RC car deployment: steering PWM and forward-only throttle PWM."

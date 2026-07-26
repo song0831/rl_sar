@@ -1,6 +1,6 @@
 # rl_sar
 
-机器人强化学习策略的仿真验证与实物部署框架，支持轮足与人形机器人。| [English](README.md)
+强化学习策略的仿真验证与实物部署框架，支持机器人与遥控车辆。| [English](README.md)
 
 ---
 
@@ -10,8 +10,17 @@
 |--------|-------|--------|--------|------|
 | NIO ATOM01 | `ATOM01` | nio_lab | 是 | 是 |
 | NIO Qmini | `Qmini` | nio_lab | 是 | 是 |
+| MJX Hyper Go 7303 / ET6 | `MJX_ET6` | nio_lab | 否 | 是 |
 | Unitree G1 | `g1` | nio_lab / whole_body_tracking | 是 | 是 |
 | Unitree Go2W | `go2w` | robot_lab | 是 | 是 |
+
+---
+
+## MJX ET6 遥控车
+
+仓库包含 MJX Hyper Go 7303 的 Jetson ONNX 推理目标、两路 PWM 输出、H30
+IMU 与四轮转速观测，以及完全由手柄切换的遥控/策略运行框架。安装和安全操作见
+[MJX ET6 Jetson 部署说明](docs/MJX_ET6_DEPLOYMENT.md)。
 
 ---
 

@@ -1,0 +1,83 @@
+MJX_ET6/nio_lab/drift:
+  model_name: "policy.onnx"
+  policy_output: "pwm_ms"   # action: normalized [-1,1], pwm_ms: direct [steering_ms, throttle_ms]
+  obs_dim: 120
+  history_length: 8
+  include_circle_state: false
+
+  imu_url: "http://127.0.0.1:8080/api/data"
+  wheel_url: "http://127.0.0.1:8081/api/data"
+  request_timeout_s: 0.08
+  max_data_age_s: 0.5
+  wheel_order: ["front_left", "front_right", "rear_left", "rear_right"]
+  wheel_rpm_key: "fast_rpm"
+  max_free_spin_rpm: 2581.3784968238324
+  # Match the current Isaac Lab task: raw RPM is clipped to
+  # [0, 2 * max_free_spin_rpm] before normalization, so policy values span [0, 2].
+  wheel_rpm_clip_before_scale: 5162.756993647665
+  # Median of the stationary 2026-07-21 Jetson dry-run. Rotate sensor vectors
+  # into the vehicle body frame and zero level-car roll/pitch.
+  imu_mount_roll_rad: -0.0649485
+  imu_mount_pitch_rad: 0.06761195
+  imu_startup_calibration_samples: 30
+  # Ground-test identification: physical right turn is raw H30 gyro_z > 0,
+  # while Isaac/vehicle FLU defines a right turn as gyro_z < 0.
+  imu_gyro_z_sign: -1.0
+  # Keep the channel, but prevent world-heading leakage in every history frame.
+  mask_absolute_yaw: true
+
+  frequency_hz: 60.0       # ONNX policy/control loop; matches 240 Hz / decimation 4 training
+  pwm_frequency_hz: 50.0   # RC servo/ESC carrier retained from hardware identification
+  min_pulse_ms: 1.0
+  neutral_pulse_ms: 1.5
+  max_pulse_ms: 2.0
+  steering_limit: 1.0
+  throttle_limit: 1.0
+  allow_reverse: false
+  steering_sign: 1.0
+  throttle_sign: 1.0
+  max_steering_slew_per_s: 0.0  # Real servo dynamics already implement the identified response.
+  max_throttle_slew_per_s: 0.0  # Disabled: training already models the identified ESC/motor response.
+  # Bounded yaw-rate residual. PPO still supplies base steering and throttle;
+  # this loop only catches excess yaw before the identified physical servo.
+  gyro_assist_enabled: true
+  gyro_assist_wheel_radius_m: 0.0515
+  gyro_assist_target_radius_m: 3.6
+  gyro_assist_direction: -1.0
+  gyro_assist_cutoff_hz: 8.0
+  gyro_assist_kp: 0.08
+  gyro_assist_max_correction: 0.12
+  gyro_assist_error_deadband_radps: 0.10
+  gyro_assist_activation_speed_mps: 0.8
+  gyro_assist_activation_blend_mps: 0.4
+  gyro_assist_correction_slew_per_s: 4.0
+  gyro_assist_max_target_yaw_rate_radps: 2.5
+  launch_assist_enabled: false
+  launch_assist_duration_s: 2.0
+  launch_assist_throttle: 0.30
+  launch_assist_release_rpm: 80.0
+
+  pwm_backend: "sysfs"
+  steering_pwm: "32e0000.pwm:0"
+  throttle_pwm: "32c0000.pwm:0"
+  steering_output_inverted: false
+  throttle_output_inverted: false
+  disable_pwm_on_exit: false
+
+  # Keep real output locked until a new checkpoint has been trained with the
+  # same gyro residual in Isaac Lab and exported with this observation contract.
+  real_output_enabled: false
+  stop_gamepad_service: true
+  restart_gamepad_service_on_exit: true
+  require_gamepad: true
+  gamepad_device: "auto"
+  gamepad_name_contains: ["G5", "MACHENIKE", "Xbox", "Wireless Controller", "Gamepad", "Controller"]
+  gamepad_grab: true
+  gamepad_arm_button: "BTN_SOUTH"      # A: arm/resume
+  gamepad_pause_button: "BTN_EAST"     # B: neutral pause
+  gamepad_abort_button: "BTN_START"    # START: emergency stop and exit
+  gamepad_deadman_button: "BTN_TR"     # RB: hold continuously to allow motion
+  neutral_on_exit: true
+  max_runtime_s: 16.0  # One complete 960-step episode at 60 Hz.
+  print_rate_hz: 2.0
+  telemetry_csv: "policy/MJX_ET6/rl_log_mjx_et6.csv"

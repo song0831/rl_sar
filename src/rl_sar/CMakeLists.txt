@@ -139,8 +139,9 @@ endif()
 set(USE_TORCH "OFF")
 set(TORCH_LIBRARIES "")
 set(LIBTORCH_DIR "${INFERENCE_RUNTIME_DIR}/libtorch")
+set(RL_SAR_ENABLE_TORCH ON CACHE BOOL "Enable LibTorch inference runtime")
 
-if(EXISTS "${LIBTORCH_DIR}/include" AND EXISTS "${LIBTORCH_DIR}/lib")
+if(RL_SAR_ENABLE_TORCH AND EXISTS "${LIBTORCH_DIR}/include" AND EXISTS "${LIBTORCH_DIR}/lib")
     set(USE_TORCH "ON")
     add_compile_definitions(USE_TORCH)
 
@@ -194,7 +195,11 @@ if(EXISTS "${LIBTORCH_DIR}/include" AND EXISTS "${LIBTORCH_DIR}/lib")
         message(WARNING "LibTorch found but find_package(Torch) failed")
     endif()
 else()
-    message(WARNING "LibTorch not found. Please run: bash download_inference_runtime.sh libtorch")
+    if(RL_SAR_ENABLE_TORCH)
+        message(WARNING "LibTorch not found. Please run: bash download_inference_runtime.sh libtorch")
+    else()
+        message(STATUS "LibTorch disabled by RL_SAR_ENABLE_TORCH=OFF")
+    endif()
 endif()
 
 # RPATH Configuration for inference libraries
@@ -419,6 +424,19 @@ if(SYSTEM_TYPE STREQUAL "Linux")
             install(TARGETS rl_real_g1 DESTINATION lib/${PROJECT_NAME})
         endif()
     endif()
+endif()
+
+# MJX Hyper Go 7303 / ET6 two-channel RC car deployment.
+if(SYSTEM_TYPE STREQUAL "Linux")
+    add_executable(rl_real_mjx_et6 src/rl_real_mjx_et6.cpp)
+    target_link_libraries(rl_real_mjx_et6
+        inference_runtime
+        ${YAML_CPP_LIBRARIES}
+        Threads::Threads
+    )
+    set_target_properties(rl_real_mjx_et6 PROPERTIES
+        INSTALL_RPATH "${CMAKE_INSTALL_RPATH}"
+    )
 endif()
 
 # executable for rl real qmini

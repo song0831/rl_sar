@@ -4,6 +4,7 @@
  */
 
 #include "inference_runtime.hpp"
+#include <algorithm>
 #include <stdexcept>
 #include <iostream>
 #include <numeric>
@@ -191,6 +192,25 @@ std::vector<float> ONNXModel::forward(const std::vector<std::vector<float>>& inp
         // Get input (use first input only)
         const auto& input = inputs[0];
         auto input_shape = session_->GetInputTypeInfo(0).GetTensorTypeAndShapeInfo().GetShape();
+
+        // Exported policies commonly retain a dynamic batch dimension. ONNX
+        // Runtime tensor creation needs a concrete shape for this one-sample loop.
+        for (auto& dim : input_shape)
+        {
+            if (dim < 0)
+            {
+                dim = 1;
+            }
+        }
+        int64_t expected_elements = 1;
+        for (const auto dim : input_shape)
+        {
+            expected_elements *= std::max<int64_t>(dim, 1);
+        }
+        if (input_shape.empty() || expected_elements != static_cast<int64_t>(input.size()))
+        {
+            input_shape = {1, static_cast<int64_t>(input.size())};
+        }
 
         // Create input tensor
         auto input_tensor = Ort::Value::CreateTensor<float>(

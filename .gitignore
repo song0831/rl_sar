@@ -34,6 +34,15 @@ MUJOCO_LOG.TXT
 .cache
 *.json
 
+# MJX ET6 runtime artifacts (configuration stays in *.json.in templates)
+policy/MJX_ET6/**/*.onnx
+policy/MJX_ET6/**/*.pt
+policy/MJX_ET6/**/*.csv
+policy/MJX_ET6/**/backups/
+policy/MJX_ET6/**/*.before_*
+deploy/mjx_et6/backups/
+deploy/mjx_et6/field_sessions/
+
 # temp
 *.zip
 *.tgz
