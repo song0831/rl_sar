@@ -1314,6 +1314,11 @@ public:
         return obs;
     }
 
+    void reset()
+    {
+        frames_.clear();
+    }
+
 private:
     DeployConfig cfg_;
     int frame_dim_ = 15;
@@ -2277,6 +2282,7 @@ int main(int argc, char** argv)
             if (!safety_allowed)
             {
                 mapper.neutral(steering, throttle, steering_ms, throttle_ms);
+                history.reset();
                 gyro_assist.reset();
                 safe_reason = safety_reason;
             }
